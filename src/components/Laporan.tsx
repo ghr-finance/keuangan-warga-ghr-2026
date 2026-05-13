@@ -154,18 +154,18 @@ export default function Laporan() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pemasukan</p>
-          <p className="text-3xl font-black text-[#5A5A40]">{formatCurrency(totalMasuk)}</p>
+          <p className="text-2xl sm:text-3xl font-black text-[#5A5A40]">{formatCurrency(totalMasuk)}</p>
         </div>
-        <div className="bg-white p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pengeluaran</p>
-          <p className="text-3xl font-black text-[#8B4513]">{formatCurrency(totalKeluar)}</p>
+          <p className="text-2xl sm:text-3xl font-black text-[#8B4513]">{formatCurrency(totalKeluar)}</p>
         </div>
-        <div className="bg-white p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Surplus Bersih</p>
-          <p className={cn("text-3xl font-black", surplus >= 0 ? "text-[#5A5A40]" : "text-[#8B4513]")}>
+          <p className={cn("text-2xl sm:text-3xl font-black", surplus >= 0 ? "text-[#5A5A40]" : "text-[#8B4513]")}>
             {formatCurrency(surplus)}
           </p>
         </div>

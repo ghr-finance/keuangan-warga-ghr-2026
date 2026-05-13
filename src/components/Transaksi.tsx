@@ -146,13 +146,13 @@ export default function TransaksiList() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375]" />
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375]" />
             <input 
               type="text" 
-              placeholder="Cari keterangan transaksi..."
-              className="w-full pl-12 pr-6 py-3.5 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none placeholder:text-[#A3A375]/50 font-medium"
+              placeholder="Cari keterangan..."
+              className="w-full pl-10 pr-4 py-3 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none placeholder:text-[#A3A375]/50 font-medium text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -161,7 +161,7 @@ export default function TransaksiList() {
             <select 
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as any)}
-              className="px-6 py-3.5 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-sm text-[#4A4A3A] appearance-none cursor-pointer"
+              className="px-4 py-3 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-[11px] uppercase tracking-wider text-[#4A4A3A] appearance-none cursor-pointer"
             >
               <option value="all">Semua Tipe</option>
               <option value="pemasukan">Pemasukan</option>
@@ -171,25 +171,24 @@ export default function TransaksiList() {
             <select 
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-6 py-3.5 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-sm text-[#4A4A3A] appearance-none cursor-pointer"
+              className="px-4 py-3 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-[11px] uppercase tracking-wider text-[#4A4A3A] appearance-none cursor-pointer"
             >
-              <option value="all">Semua Kategori</option>
+              <option value="all">Kategori</option>
               {kategori.filter(k => filterType === 'all' || k.tipe === filterType).map(k => (
-                <option key={k.id} value={k.id}>{k.nama} ({k.tipe === 'pemasukan' ? 'In' : 'Out'})</option>
+                <option key={k.id} value={k.id}>{k.nama}</option>
               ))}
             </select>
 
             <select 
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="px-6 py-3.5 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-sm text-[#4A4A3A] appearance-none cursor-pointer"
+              className="px-4 py-3 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-[11px] uppercase tracking-wider text-[#4A4A3A] appearance-none cursor-pointer"
             >
-              <option value="all">Semua Bulan</option>
-              {/* Extract unique months from transactions */}
+              <option value="all">Bulan</option>
               {Array.from(new Set(transaksi.map(t => format(new Date(t.tanggal), 'yyyy-MM'))))
                 .sort((a, b) => (b as string).localeCompare(a as string))
                 .map((m) => (
-                  <option key={m as string} value={m as string}>{format(new Date(m as string), 'MMMM yyyy')}</option>
+                  <option key={m as string} value={m as string}>{format(new Date(m as string), 'MMM yy')}</option>
                 ))
               }
             </select>
@@ -197,11 +196,11 @@ export default function TransaksiList() {
             <select 
               value={filterWarga}
               onChange={(e) => setFilterWarga(e.target.value)}
-              className="px-6 py-3.5 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-sm text-[#4A4A3A] appearance-none cursor-pointer"
+              className="px-4 py-3 bg-white border border-[#E5E5DA] rounded-full focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold text-[11px] uppercase tracking-wider text-[#4A4A3A] appearance-none cursor-pointer"
             >
-              <option value="all">Semua Warga</option>
+              <option value="all">Warga</option>
               {warga.map(w => (
-                <option key={w.id} value={w.id}>{w.nama} ({w.noRumah})</option>
+                <option key={w.id} value={w.id}>{w.nama}</option>
               ))}
             </select>
 
@@ -214,10 +213,10 @@ export default function TransaksiList() {
                   setFilterWarga('all');
                   setSearchTerm('');
                 }}
-                className="p-3.5 bg-[#fff5f5] text-[#8B4513] border border-[#8B4513]/20 rounded-full hover:bg-[#8B4513] hover:text-white transition-all flex items-center justify-center"
+                className="p-3 bg-[#fff5f5] text-[#8B4513] border border-[#8B4513]/20 rounded-full hover:bg-[#8B4513] hover:text-white transition-all flex items-center justify-center shrink-0"
                 title="Reset Filter"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -411,6 +410,32 @@ export default function TransaksiList() {
                             onChange={(e) => setFormData({...formData, bulanIuran: e.target.value})}
                           />
                         </div>
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Petugas Penerima (PIC)</label>
+                          <select 
+                            className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
+                            value={formData.petugasId}
+                            onChange={(e) => setFormData({...formData, petugasId: e.target.value, picName: ''})}
+                          >
+                            <option value="">Pilih Petugas (Opsional)</option>
+                            {petugas.filter(p => p.status === 'Aktif').map(p => (
+                              <option key={p.id} value={p.id}>{p.nama} ({p.jabatan})</option>
+                            ))}
+                            <option value="other">Lainnya (Manual)</option>
+                          </select>
+                        </div>
+                        {formData.petugasId === 'other' && (
+                          <div className="col-span-2">
+                            <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Nama PIC Manual</label>
+                            <input 
+                              type="text" 
+                              placeholder="Masukkan nama penerima..."
+                              className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
+                              value={formData.picName}
+                              onChange={(e) => setFormData({...formData, picName: e.target.value})}
+                            />
+                          </div>
+                        )}
                         {isKegiatanCategory && (
                           <div className="col-span-2">
                             <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1 text-blue-600">Event Terkait (Opsional)</label>

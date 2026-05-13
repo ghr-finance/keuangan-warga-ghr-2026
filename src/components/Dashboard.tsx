@@ -116,29 +116,33 @@ export default function Dashboard() {
         <p className="text-[#A3A375] font-medium mt-2">Pantau arus kas dan kewajiban warga secara real-time.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat, i) => (
           <div 
             key={i} 
             onClick={stat.label.includes('Belum Bayar') ? () => setIsIuranModalOpen(true) : undefined}
             className={cn(
-              "bg-white p-6 rounded-[32px] shadow-sm border border-[#E5E5DA] flex flex-col gap-5 transition-transform hover:scale-[1.02] duration-300",
+              "bg-white p-5 sm:p-6 rounded-[32px] shadow-sm border border-[#E5E5DA] flex flex-col gap-3 sm:gap-5 transition-transform hover:scale-[1.02] duration-300",
               stat.label.includes('Belum Bayar') && "cursor-pointer hover:border-amber-400"
             )}
           >
             <div className={cn(
-              "p-3 rounded-[20px] w-fit shadow-inner",
+              "p-2.5 sm:p-3 rounded-[20px] w-fit shadow-inner",
               stat.bg || "bg-gray-100"
             )}>
-              <stat.icon className={cn("w-6 h-6", stat.color)} />
+              <stat.icon className={cn("w-5 h-5 sm:w-6 sm:h-6", stat.color)} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#A3A375] uppercase tracking-widest">{stat.label}</p>
-              <p className="text-2xl font-black text-[#3A3A2A] mt-1">{stat.value}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] sm:text-xs font-bold text-[#A3A375] uppercase tracking-widest leading-tight truncate">{stat.label}</p>
+              <div className="flex items-baseline gap-1 mt-1 overflow-hidden">
+                <p className="text-lg sm:text-xl xl:text-2xl font-black text-[#3A3A2A] leading-tight truncate">
+                  {stat.value}
+                </p>
+              </div>
               {stat.label === 'Saldo Saat Ini' && (
                 <div className="flex items-center gap-1.5 mt-2 text-[10px] font-bold text-[#A3A375]">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                  Termasuk Saldo 2025: {formatCurrency(saldoAwal2025)}
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                  <span className="truncate">Sisa 2025: {formatCurrency(saldoAwal2025)}</span>
                 </div>
               )}
             </div>
@@ -147,41 +151,41 @@ export default function Dashboard() {
       </div>
 
       {/* Special RT Summary Card */}
-      <div className="bg-[#5A5A40] rounded-[40px] p-8 sm:p-10 text-[#F5F5F0] shadow-xl shadow-[#5A5A40]/30 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+      <div className="bg-[#5A5A40] rounded-[40px] p-6 sm:p-10 text-[#F5F5F0] shadow-xl shadow-[#5A5A40]/30 relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
+          <div className="flex flex-col md:flex-row md:items-start lg:items-center justify-between gap-6 mb-10">
             <div>
               <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full mb-4">
                 <Home className="w-4 h-4 text-[#A3A375]" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Informasi Iuran Bulanan</span>
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Informasi Iuran Bulanan</span>
               </div>
-              <h2 className="text-3xl font-serif font-bold tracking-tight">Dana Iuran RT</h2>
-              <p className="text-[#A3A375] text-sm font-medium mt-1">Rekapitulasi khusus dana RT yang dikelola lingkungan.</p>
+              <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">Dana Iuran RT</h2>
+              <p className="text-[#A3A375] text-xs sm:text-sm font-medium mt-1">Rekapitulasi khusus dana RT yang dikelola lingkungan.</p>
             </div>
-            <div className="flex items-center gap-3 bg-white/5 p-4 rounded-3xl border border-white/10">
-              <div className="w-10 h-10 bg-[#A3A375] rounded-xl flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-[#5A5A40]" />
+            <div className="flex items-center gap-3 bg-white/5 p-3 sm:p-4 rounded-3xl border border-white/10 self-start sm:self-auto min-w-[180px]">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#A3A375] rounded-xl flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#5A5A40]" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Awal 2025</p>
-                <p className="text-lg font-bold">{formatCurrency(saldoRT2025)}</p>
+                <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Awal 2025</p>
+                <p className="text-base sm:text-lg font-bold">{formatCurrency(saldoRT2025)}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <div className="space-y-1">
-              <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pemasukan (2026)</p>
-              <p className="text-2xl font-bold text-emerald-400">+{formatCurrency(rtIncome2026)}</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pemasukan (2026)</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-400">+{formatCurrency(rtIncome2026)}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pengeluaran (2026)</p>
-              <p className="text-2xl font-bold text-red-400">-{formatCurrency(rtKeluar)}</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pengeluaran (2026)</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-400">-{formatCurrency(rtKeluar)}</p>
             </div>
-            <div className="pt-6 sm:pt-0 sm:pl-8 border-t sm:border-t-0 sm:border-l border-white/10 space-y-1">
-              <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
-              <p className="text-3xl font-black">{formatCurrency(rtSaldo)}</p>
+            <div className="pt-6 sm:pt-0 sm:pl-0 lg:pl-8 border-t sm:border-t-0 sm:border-l-0 lg:border-l border-white/10 space-y-1 sm:col-span-2 lg:col-span-1">
+              <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
+              <p className="text-2xl sm:text-3xl font-black">{formatCurrency(rtSaldo)}</p>
             </div>
           </div>
         </div>
@@ -193,12 +197,12 @@ export default function Dashboard() {
         wargaList={warga}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-8 rounded-[32px] shadow-sm border border-[#E5E5DA]">
-          <h3 className="text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas</h3>
-          <div className="h-[320px] w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="md:col-span-1 lg:col-span-2 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] h-fit">
+          <h3 className="text-lg sm:text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas</h3>
+          <div className="h-[280px] sm:h-[320px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#A3A375" stopOpacity={0.2}/>
@@ -206,8 +210,8 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#E5E5DA" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#A3A375', fontSize: 11, fontWeight: 600}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#A3A375', fontSize: 11, fontWeight: 600}} tickFormatter={(val) => `Rp${val/1000}k`} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#A3A375', fontSize: 10, fontWeight: 600}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#A3A375', fontSize: 10, fontWeight: 600}} tickFormatter={(val) => `Rp${val/1000}k`} />
                 <Tooltip 
                   contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px'}}
                   cursor={{stroke: '#E5E5DA', strokeWidth: 2}}
@@ -218,45 +222,47 @@ export default function Dashboard() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#A3A375]">
-              <div className="w-3 h-3 bg-[#5A5A40] rounded-full" /> Pemasukan
+          <div className="flex justify-center gap-6 mt-6">
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-[#A3A375]">
+              <div className="w-2.5 h-2.5 bg-[#5A5A40] rounded-full" /> Pemasukan
             </div>
-            <div className="flex items-center gap-2 text-xs font-bold text-[#A3A375]">
-              <div className="w-3 h-3 bg-[#8B4513] rounded-full" /> Pengeluaran
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-[#A3A375]">
+              <div className="w-2.5 h-2.5 bg-[#8B4513] rounded-full" /> Pengeluaran
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-[#E5E5DA]">
-          <h3 className="text-xl font-bold text-[#3A3A2A] mb-6 flex items-center justify-between">
+        <div className="bg-white p-4 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] flex flex-col h-full min-h-[400px]">
+          <h3 className="text-lg sm:text-xl font-bold text-[#3A3A2A] mb-6 flex items-center justify-between shrink-0">
             Aktivitas
-            <button className="text-xs font-bold text-[#5A5A40] underline underline-offset-4 decoration-[#A3A375]/40 active:scale-95 transition-transform">Lihat Semua</button>
+            <button className="text-[10px] sm:text-xs font-bold text-[#5A5A40] underline underline-offset-4 decoration-[#A3A375]/40 active:scale-95 transition-transform">Lihat Semua</button>
           </h3>
-          <div className="space-y-5">
-            {transaksi.slice(0, 6).sort((a,b) => b.tanggal - a.tanggal).map((t) => (
-              <div key={t.id} className="flex items-center gap-4 group">
+          <div className="space-y-5 overflow-y-auto pr-2 custom-scrollbar flex-1">
+            {transaksi.slice(0, 8).sort((a,b) => b.tanggal - a.tanggal).map((t) => (
+              <div key={t.id} className="flex items-center gap-3 sm:gap-4 group">
                 <div className={cn(
-                  "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
-                  t.tipe === 'pemasukan' ? "bg-[#f0f9f1]" : "bg-[#fff5f5]"
+                  "w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors shadow-sm",
+                  t.tipe === 'pemasukan' ? "bg-emerald-50" : "bg-red-50"
                 )}>
-                  {t.tipe === 'pemasukan' ? <ArrowDownLeft className="text-emerald-700 w-5 h-5" /> : <ArrowUpRight className="text-[#8B4513] w-5 h-5" />}
+                  {t.tipe === 'pemasukan' ? <ArrowDownLeft className="text-emerald-600 w-4 h-4 sm:w-5 sm:h-5" /> : <ArrowUpRight className="text-red-600 w-4 h-4 sm:w-5 sm:h-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-[#3A3A2A] truncate group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</p>
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#A3A375]">{formatDate(t.tanggal)}</p>
+                  <p className="text-[11px] sm:text-sm font-bold text-[#3A3A2A] truncate group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</p>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-[#A3A375]">{formatDate(t.tanggal)}</p>
                 </div>
-                <p className={cn(
-                  "text-sm font-black tabular-nums",
-                  t.tipe === 'pemasukan' ? "text-[#5A5A40]" : "text-[#8B4513]"
-                )}>
-                  {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
-                </p>
+                <div className="shrink-0 text-right pl-2">
+                  <p className={cn(
+                    "text-[11px] sm:text-sm font-black tabular-nums whitespace-nowrap",
+                    t.tipe === 'pemasukan' ? "text-emerald-700" : "text-red-700"
+                  )}>
+                    {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
+                  </p>
+                </div>
               </div>
             ))}
             {transaksi.length === 0 && (
-              <div className="text-center py-12 border-2 border-dashed border-[#E5E5DA] rounded-3xl">
-                <p className="text-gray-400 text-sm italic">Belum ada aktivitas</p>
+              <div className="text-center py-12 border-2 border-dashed border-[#E5E5DA] rounded-3xl h-full flex flex-col justify-center">
+                <p className="text-[#A3A375] text-xs font-medium italic">Belum ada aktivitas</p>
               </div>
             )}
           </div>

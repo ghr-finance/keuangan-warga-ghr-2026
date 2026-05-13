@@ -57,6 +57,7 @@ export interface Petugas {
   jabatan: string;
   phone?: string;
   status: 'Aktif' | 'Non-Aktif';
+  sisaKasbon2025?: number;
   createdAt: number;
 }
 

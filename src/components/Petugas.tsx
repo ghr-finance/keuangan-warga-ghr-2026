@@ -1,28 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Petugas } from '../types';
-import { Plus, Search, MoreVertical, Phone, UserCircle2, Filter, X, Pencil, Trash2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Plus, Search, MoreVertical, Phone, UserCircle2, Filter, X, Pencil, Trash2, Eye, Receipt, Calendar, ArrowUpRight, ArrowDownLeft, AlertCircle } from 'lucide-react';
+import { cn, formatDate, formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { Transaksi } from '../types';
 
 export default function PetugasList() {
   const [petugas, setPetugas] = useState<Petugas[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [selectedPetugasForDetail, setSelectedPetugasForDetail] = useState<Petugas | null>(null);
+  const [petugasTransactions, setPetugasTransactions] = useState<Transaksi[]>([]);
   
   const [formData, setFormData] = useState({
     nama: '',
     jabatan: '',
     phone: '',
-    status: 'Aktif' as const
+    status: 'Aktif' as const,
+    sisaKasbon2025: 0
   });
 
   useEffect(() => {
     const unsub = dbService.subscribe('petugas', (data) => {
-      setPetugas(data);
+      // Auto-assign 300k to Udin if not set (as requested)
+      const enrichedData = data.map((p: any) => {
+        if (p.nama.toLowerCase() === 'udin' && p.sisaKasbon2025 === undefined) {
+          return { ...p, sisaKasbon2025: 300000 };
+        }
+        return p;
+      });
+      setPetugas(enrichedData);
     });
-    return () => unsub();
+
+    const unsubT = dbService.subscribe('transaksi', (data: Transaksi[]) => {
+      setPetugasTransactions(data);
+    });
+    
+    const handleClickOutside = () => setActiveMenuId(null);
+    window.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      unsub();
+      unsubT();
+      window.removeEventListener('click', handleClickOutside);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +65,7 @@ export default function PetugasList() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ nama: '', jabatan: '', phone: '', status: 'Aktif' });
+    setFormData({ nama: '', jabatan: '', phone: '', status: 'Aktif', sisaKasbon2025: 0 });
   };
 
   const handleEdit = (p: Petugas) => {
@@ -50,7 +74,8 @@ export default function PetugasList() {
       nama: p.nama,
       jabatan: p.jabatan,
       phone: p.phone || '',
-      status: p.status
+      status: p.status,
+      sisaKasbon2025: p.sisaKasbon2025 || 0
     });
     setIsModalOpen(true);
   };
@@ -141,22 +166,65 @@ export default function PetugasList() {
                       {p.status}
                     </span>
                   </td>
-                  <td className="px-8 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="px-8 py-5 text-right relative">
+                    <div className="flex items-center justify-end">
                       <button 
-                        onClick={() => handleEdit(p)}
-                        className="p-2 text-[#A3A375] hover:text-[#5A5A40] transition-colors rounded-xl hover:bg-gray-50"
-                        title="Edit Petugas"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === p.id ? null : p.id);
+                        }}
+                        className={cn(
+                          "p-2 transition-all rounded-xl hover:bg-gray-100",
+                          activeMenuId === p.id ? "bg-gray-100 text-[#5A5A40]" : "text-[#A3A375]"
+                        )}
                       >
-                        <Pencil className="w-5 h-5" />
+                        <MoreVertical className="w-5 h-5" />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(p.id)}
-                        className="p-2 text-[#A3A375] hover:text-red-500 transition-colors rounded-xl hover:bg-gray-50"
-                        title="Hapus Petugas"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+
+                      <AnimatePresence>
+                        {activeMenuId === p.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
+                            className="absolute right-16 top-1/2 -translate-y-1/2 z-50 min-w-[160px] bg-white border border-[#E5E5DA] shadow-xl rounded-2xl overflow-hidden py-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button 
+                              onClick={() => {
+                                setSelectedPetugasForDetail(p);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-[#5A5A40] hover:bg-[#F5F5F0] transition-colors"
+                            >
+                              <Eye className="w-4 h-4 text-[#A3A375]" />
+                              View Detail
+                            </button>
+
+                            <button 
+                              onClick={() => {
+                                handleEdit(p);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-[#5A5A40] hover:bg-[#F5F5F0] transition-colors border-t border-[#F5F5F0]"
+                            >
+                              <Pencil className="w-4 h-4 text-[#A3A375]" />
+                              Edit Petugas
+                            </button>
+                            
+                            <button 
+                              onClick={() => {
+                                handleDelete(p.id);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors border-t border-[#F5F5F0]"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                              Hapus Petugas
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </td>
                 </tr>
@@ -221,6 +289,16 @@ export default function PetugasList() {
                     />
                   </div>
                   <div>
+                    <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2 ml-1">Sisa Kasbon Tahun 2025 (Opsional)</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-5 py-4 bg-white border border-[#E5E5DA] rounded-2xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold placeholder:text-gray-300"
+                      placeholder="0"
+                      value={formData.sisaKasbon2025 === 0 ? '' : formData.sisaKasbon2025}
+                      onChange={(e) => setFormData({...formData, sisaKasbon2025: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
                     <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Status Petugas</label>
                     <div className="flex p-1 bg-white border border-[#E5E5DA] rounded-2xl gap-1">
                       {(['Aktif', 'Non-Aktif'] as const).map((s) => (
@@ -258,6 +336,160 @@ export default function PetugasList() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedPetugasForDetail && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#3A3A2A]/60 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#F5F5F0] rounded-[32px] w-full max-w-2xl shadow-2xl border border-[#E5E5DA] overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-8 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50 shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#5A5A40] flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg shadow-[#5A5A40]/30">
+                    {selectedPetugasForDetail.nama.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-serif font-bold text-[#3A3A2A] leading-tight">{selectedPetugasForDetail.nama}</h2>
+                    <p className="text-[#A3A375] font-bold text-xs uppercase tracking-widest mt-1">{selectedPetugasForDetail.jabatan}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedPetugasForDetail(null)} 
+                  className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-full transition-colors text-[#A3A375] border border-[#E5E5DA]"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="space-y-8">
+                  {selectedPetugasForDetail.sisaKasbon2025 ? (
+                    <div className="p-5 bg-amber-50 border border-amber-200 rounded-3xl flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                        <AlertCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-amber-900 text-sm">Informasi Kasbon 2025</p>
+                        <p className="text-amber-700 text-xs mt-1 leading-relaxed">
+                          Petugas ini memiliki sisa kasbon tahun 2025 sebesar <span className="font-black underline scale-105 inline-block mx-0.5">{formatCurrency(selectedPetugasForDetail.sisaKasbon2025)}</span> yang belum terlunasi.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white p-6 rounded-3xl border border-[#E5E5DA] shadow-sm">
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Tanggung Jawab</p>
+                      <p className="text-lg lg:text-xl font-black text-[#5A5A40]">
+                        {formatCurrency(petugasTransactions.filter(t => 
+                          t.petugasId === selectedPetugasForDetail.id || 
+                          t.picName === selectedPetugasForDetail.nama ||
+                          t.keterangan.includes(`(PIC: ${selectedPetugasForDetail.nama})`)
+                        ).reduce((acc, curr) => acc + curr.jumlah, 0))}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-[#E5E5DA] shadow-sm">
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Kasbon</p>
+                      <p className="text-lg lg:text-xl font-black text-amber-600">
+                        {formatCurrency(
+                          (selectedPetugasForDetail.sisaKasbon2025 || 0) + 
+                          petugasTransactions.filter(t => 
+                            (t.petugasId === selectedPetugasForDetail.id || 
+                            t.picName === selectedPetugasForDetail.nama ||
+                            t.keterangan.includes(`(PIC: ${selectedPetugasForDetail.nama})`)) &&
+                            t.keterangan.toLowerCase().includes('kasbon')
+                          ).reduce((acc, curr) => acc + curr.jumlah, 0)
+                        )}
+                      </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl border border-[#E5E5DA] shadow-sm">
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Jumlah Transaksi</p>
+                      <p className="text-lg lg:text-xl font-black text-[#5A5A40]">
+                        {petugasTransactions.filter(t => 
+                          t.petugasId === selectedPetugasForDetail.id || 
+                          t.picName === selectedPetugasForDetail.nama ||
+                          t.keterangan.includes(`(PIC: ${selectedPetugasForDetail.nama})`)
+                        ).length} <span className="text-[10px] font-bold text-[#A3A375] uppercase underline underline-offset-4 decoration-2 decoration-[#5A5A40]/20">Record</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                      <h3 className="text-sm font-black text-[#3A3A2A] uppercase tracking-widest flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-[#A3A375]" />
+                        Riwayat Transaksi PIC
+                      </h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      {petugasTransactions
+                        .filter(t => 
+                          // Match by explicit ID
+                          t.petugasId === selectedPetugasForDetail.id || 
+                          // Match by explicit picName
+                          t.picName === selectedPetugasForDetail.nama ||
+                          // Match by seed data format in keterangan: "... (PIC: Name)"
+                          t.keterangan.includes(`(PIC: ${selectedPetugasForDetail.nama})`)
+                        )
+                        .sort((a, b) => b.tanggal - a.tanggal)
+                        .map((t) => (
+                          <div key={t.id} className="bg-white p-5 rounded-2xl border border-[#E5E5DA] hover:border-[#A3A375] transition-all group shadow-sm">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                                  t.tipe === 'pemasukan' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                                )}>
+                                  {t.tipe === 'pemasukan' ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-[#3A3A2A] text-sm group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</p>
+                                  <p className="text-[10px] font-bold text-[#A3A375] flex items-center gap-1 mt-0.5">
+                                    <Calendar className="w-3 h-3" /> {formatDate(t.tanggal)}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className={cn(
+                                "font-black tabular-nums whitespace-nowrap",
+                                t.tipe === 'pemasukan' ? "text-green-600" : "text-red-600"
+                              )}>
+                                {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
+                              </p>
+                            </div>
+                          </div>
+                      ))}
+
+                      {petugasTransactions.filter(t => 
+                        t.petugasId === selectedPetugasForDetail.id || 
+                        t.picName === selectedPetugasForDetail.nama ||
+                        t.keterangan.includes(`(PIC: ${selectedPetugasForDetail.nama})`)
+                      ).length === 0 && (
+                        <div className="text-center py-12 px-6 bg-white/50 border border-dashed border-[#E5E5DA] rounded-3xl">
+                          <Receipt className="w-10 h-10 text-[#E5E5DA] mx-auto mb-3" />
+                          <p className="text-[#A3A375] font-serif italic">Belum ada catatan transaksi untuk petugas ini.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-[#E5E5DA] bg-white/50 flex justify-end shrink-0">
+                <button 
+                  onClick={() => setSelectedPetugasForDetail(null)}
+                  className="px-8 py-3 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-[#5A5A40]/20 text-sm"
+                >
+                  Tutup Detail
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

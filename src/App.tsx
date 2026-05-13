@@ -38,7 +38,19 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<NavItem>('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
@@ -813,14 +825,13 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-[#F5F5F0] text-[#4A4A3A] font-sans">
-      {/* Mobile Menu Backdrop */}
       <AnimatePresence>
-        {!isSidebarOpen && (
+        {isSidebarOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsSidebarOpen(true)}
+            onClick={() => setIsSidebarOpen(false)}
             className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           />
         )}
@@ -828,8 +839,8 @@ export default function App() {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[#5A5A40] text-[#F5F5F0] transition-transform duration-300 lg:translate-x-0 shadow-2xl lg:shadow-none",
-        !isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[#5A5A40] text-[#F5F5F0] transition-transform duration-300 lg:translate-x-0 shadow-2xl lg:shadow-none border-r border-[#6B6B4D]",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
           <div className="p-8 flex items-center justify-between">
@@ -842,7 +853,7 @@ export default function App() {
                 <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Warga RT/RW</p>
               </div>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 hover:bg-white/10 rounded">
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition-colors">
               <X className="w-5 h-5 text-[#F5F5F0]" />
             </button>
           </div>
@@ -901,7 +912,7 @@ export default function App() {
           </button>
         </header>
 
-        <div className="p-6 lg:p-12 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 xl:p-12 max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Warga, Kategori, TransactionType, Petugas, Event } from '../types';
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, Filter, X, CreditCard, ChevronDown, UserCheck, Layout } from 'lucide-react';
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, Filter, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2 } from 'lucide-react';
 import { cn, formatDate, formatCurrency } from '../lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -13,6 +13,9 @@ export default function TransaksiList() {
   const [petugas, setPetugas] = useState<Petugas[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -29,6 +32,10 @@ export default function TransaksiList() {
     }
   }, [filterType, kategori, filterCategory]);
 
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([format(new Date(), "yyyy-MM")]);
+  const [selectedBaseAmount, setSelectedBaseAmount] = useState<number | null>(null);
+  const [customAmount, setCustomAmount] = useState<number | ''>('');
+
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     keterangan: '',
@@ -39,8 +46,35 @@ export default function TransaksiList() {
     petugasId: '',
     eventId: '',
     picName: '',
-    bulanIuran: format(new Date(), "yyyy-MM"),
   });
+
+  const selectedCategory = kategori.find(k => k.id === formData.kategoriId);
+  const isKegiatanCategory = selectedCategory?.nama.toLowerCase().includes('kegiatan');
+  const isIuranBulanan = selectedCategory?.nama === 'Iuran Bulanan';
+
+  const selectedWarga = warga.find(w => w.id === formData.wargaId);
+  const isWargaMenghuni = selectedWarga?.statusHuni === 'Menghuni';
+  const displayBaseAmountForReference = isWargaMenghuni ? 200000 : 175000;
+
+  // Total amount calculation
+  const calculatedTotal = isIuranBulanan 
+    ? (selectedBaseAmount || 0) + (typeof customAmount === 'number' ? customAmount : 0)
+    : (typeof customAmount === 'number' ? customAmount : 0);
+
+  const divisor = selectedBaseAmount || displayBaseAmountForReference;
+  const maxMonths = isIuranBulanan ? Math.max(1, Math.floor(calculatedTotal / divisor)) : 1;
+
+  // Sync jumlah with calculated total
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, jumlah: calculatedTotal }));
+  }, [calculatedTotal]);
+
+  // Adjust selected months if they exceed maxMonths
+  useEffect(() => {
+    if (selectedMonths.length > maxMonths && maxMonths > 0) {
+      setSelectedMonths(prev => prev.slice(0, maxMonths));
+    }
+  }, [maxMonths]);
 
   useEffect(() => {
     const unsubT = dbService.subscribe('transaksi', setTransaksi);
@@ -57,21 +91,79 @@ export default function TransaksiList() {
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.kategoriId) return alert('Pilih kategori!');
+  const handleSubmit = async (e: React.FormEvent, force: boolean = false) => {
+    if (e) e.preventDefault();
+    if (!formData.kategoriId) {
+      setErrorMsg('Pilih kategori!');
+      return;
+    }
     
-    await dbService.add('transaksi', {
-      ...formData,
-      tanggal: new Date(formData.tanggal).getTime(),
-      jumlah: Number(formData.jumlah),
-      createdAt: Date.now()
+    // Check for identical transactions in the last 24 hours
+    const sameDay = new Date(formData.tanggal).setHours(0,0,0,0);
+    const cleanKeterangan = (formData.keterangan || '').trim().toLowerCase();
+
+    const isDuplicate = transaksi.some(t => {
+      const transDay = new Date(t.tanggal).setHours(0,0,0,0);
+      const tCleanKeterangan = (t.keterangan || '').trim().toLowerCase();
+      
+      return t.jumlah === Number(formData.jumlah) && 
+             tCleanKeterangan === cleanKeterangan && 
+             t.tipe === formData.tipe &&
+             t.kategoriId === formData.kategoriId &&
+             t.wargaId === formData.wargaId &&
+             transDay === sameDay;
     });
-    setIsModalOpen(false);
-    resetForm();
+
+    if (isDuplicate && !force) {
+      setDuplicateWarning('Ditemukan transaksi yang identik pada hari yang sama.');
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      const submissionDate = formData.tipe === 'pengeluaran' ? Date.now() : new Date(formData.tanggal).getTime();
+      
+      if (selectedMonths.length > 1 && formData.tipe === 'pemasukan') {
+        // Create multiple transactions for each month
+        const amountPerMonth = formData.jumlah / selectedMonths.length;
+        const promises = selectedMonths.map(month => {
+          return dbService.add('transaksi', {
+            ...formData,
+            keterangan: (formData.keterangan || '').trim(),
+            tanggal: submissionDate,
+            jumlah: amountPerMonth,
+            bulanIuran: month,
+            createdAt: Date.now()
+          });
+        });
+        await Promise.all(promises);
+      } else {
+        await dbService.add('transaksi', {
+          ...formData,
+          keterangan: (formData.keterangan || '').trim(),
+          tanggal: submissionDate,
+          jumlah: Number(formData.jumlah),
+          bulanIuran: formData.tipe === 'pemasukan' ? (selectedMonths[0] || null) : null,
+          createdAt: Date.now()
+        });
+      }
+      setIsModalOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error(error);
+      setErrorMsg('Gagal menyimpan transaksi.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetForm = () => {
+    setDuplicateWarning(null);
+    setErrorMsg(null);
+    setSelectedMonths([format(new Date(), "yyyy-MM")]);
+    setSelectedBaseAmount(null);
+    setCustomAmount('');
     setFormData({
       tanggal: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       keterangan: '',
@@ -82,12 +174,9 @@ export default function TransaksiList() {
       petugasId: '',
       eventId: '',
       picName: '',
-      bulanIuran: format(new Date(), "yyyy-MM"),
     });
   };
 
-  const selectedCategory = kategori.find(k => k.id === formData.kategoriId);
-  const isKegiatanCategory = selectedCategory?.nama.toLowerCase().includes('kegiatan');
 
   const filteredTransaksi = transaksi.filter(t => {
     const matchesSearch = t.keterangan.toLowerCase().includes(searchTerm.toLowerCase());
@@ -243,6 +332,12 @@ export default function TransaksiList() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#A3A375] font-bold">
+                  {t.wargaId && (
+                    <span className="flex items-center gap-2 text-[#5A5A40]">
+                      <User className="w-4 h-4" /> 
+                      {warga.find(w => w.id === t.wargaId)?.nama}
+                    </span>
+                  )}
                   <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {formatDate(t.tanggal)}</span>
                   <span className="flex items-center gap-2"><Tag className="w-4 h-4" /> {kategori.find(k => k.id === t.kategoriId)?.nama || 'Tanpa Kategori'}</span>
                   {t.eventId && (
@@ -251,7 +346,6 @@ export default function TransaksiList() {
                       Event: {events.find(e => e.id === t.eventId)?.nama}
                     </span>
                   )}
-                  {t.wargaId && <span className="flex items-center gap-2"><User className="w-4 h-4" /> {warga.find(w => w.id === t.wargaId)?.nama}</span>}
                   {(t.petugasId || t.picName) && (
                     <span className="flex items-center gap-2 text-emerald-600">
                       <UserCheck className="w-4 h-4" /> 
@@ -293,9 +387,9 @@ export default function TransaksiList() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#F5F5F0] rounded-[32px] w-full max-w-lg shadow-2xl overflow-hidden border border-[#E5E5DA]"
+              className="bg-[#F5F5F0] rounded-[32px] w-full max-w-2xl shadow-2xl overflow-hidden border border-[#E5E5DA] flex flex-col max-h-[90vh]"
             >
-              <div className="p-8 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50">
+              <div className="p-6 sm:p-8 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50 shrink-0">
                 <h2 className="text-2xl font-serif font-bold text-[#3A3A2A]">Catat Transaksi</h2>
                 <button 
                   onClick={() => setIsModalOpen(false)} 
@@ -304,202 +398,338 @@ export default function TransaksiList() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                <div className="flex p-1.5 bg-[#F5F5F0] rounded-2xl gap-1.5 border border-[#E5E5DA]">
+              <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                {duplicateWarning && (
+                  <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <div className="flex gap-4">
+                      <Info className="w-6 h-6 text-amber-600 shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold text-amber-900 mb-1">Data Ganda Terdeteksi?</h4>
+                        <p className="text-xs text-amber-700 leading-relaxed mb-4">{duplicateWarning}</p>
+                        <div className="flex gap-3">
+                          <button 
+                            type="button"
+                            onClick={() => setDuplicateWarning(null)}
+                            className="px-4 py-2 bg-white border border-amber-200 text-amber-700 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+                          >
+                            Batal
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setDuplicateWarning(null);
+                              handleSubmit(null as any, true);
+                            }}
+                            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider"
+                          >
+                            Tetap Simpan
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {errorMsg && (
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex gap-3 text-red-700 text-xs font-bold">
+                    <X className="w-4 h-4 shrink-0" />
+                    {errorMsg}
+                  </div>
+                )}
+
+                <div className="flex p-2 bg-white/50 rounded-2xl gap-2 border border-[#E5E5DA]">
                   <button 
                     type="button" 
                     onClick={() => setFormData({...formData, tipe: 'pemasukan'})}
                     className={cn(
-                      "flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
-                      formData.tipe === 'pemasukan' ? "bg-white text-[#5A5A40] shadow-sm shadow-[#A3A375]/10" : "text-[#A3A375]"
+                      "flex-1 py-3 px-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
+                      formData.tipe === 'pemasukan' ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20" : "text-[#A3A375] hover:bg-white"
                     )}
                   >
+                    <ArrowDownLeft className="w-4 h-4" />
                     Pemasukan
                   </button>
                   <button 
                     type="button" 
                     onClick={() => setFormData({...formData, tipe: 'pengeluaran'})}
                     className={cn(
-                      "flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
-                      formData.tipe === 'pengeluaran' ? "bg-white text-[#8B4513] shadow-sm shadow-[#8B4513]/10" : "text-[#A3A375]"
+                      "flex-1 py-3 px-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
+                      formData.tipe === 'pengeluaran' ? "bg-[#9CA3AF] text-white shadow-lg shadow-[#9CA3AF]/20" : "text-[#A3A375] hover:bg-white"
                     )}
                   >
+                    <ArrowUpRight className="w-4 h-4" />
                     Pengeluaran
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Tanggal & Waktu</label>
-                    <input 
-                      required
-                      type="datetime-local" 
-                      className="w-full px-5 py-3 bg-white border border-[#E5E5DA] rounded-2xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
-                      value={formData.tanggal}
-                      onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Jumlah (Rp)</label>
-                    <input 
-                      required
-                      type="number" 
-                      min="0"
-                      placeholder="Contoh: 50000"
-                      className="w-full px-5 py-3 bg-white border border-[#E5E5DA] rounded-2xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold placeholder:text-gray-300"
-                      value={formData.jumlah || ''}
-                      onChange={(e) => setFormData({...formData, jumlah: Number(e.target.value)})}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Kategori</label>
-                  <div className="relative">
-                    <select 
-                      required
-                      className="w-full px-5 py-3 bg-white border border-[#E5E5DA] rounded-2xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
-                      value={formData.kategoriId}
-                      onChange={(e) => setFormData({...formData, kategoriId: e.target.value})}
-                    >
-                      <option value="">Pilih Kategori</option>
-                      {kategori.filter(k => k.tipe === formData.tipe).map(k => (
-                        <option key={k.id} value={k.id}>{k.nama}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Keterangan</label>
-                  <input 
-                    required
-                    type="text" 
-                    placeholder="Contoh: Iuran Bulanan Bpk. Budi"
-                    className="w-full px-5 py-3 bg-white border border-[#E5E5DA] rounded-2xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold placeholder:text-gray-300"
-                    value={formData.keterangan}
-                    onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
-                  />
-                </div>
-
-                <div className="p-6 bg-white/50 rounded-[24px] border border-[#E5E5DA] space-y-4">
-                  <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-[0.2em]">Kaitan Data</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    {formData.tipe === 'pemasukan' ? (
-                      <>
-                        <div>
-                          <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Warga</label>
+                <div className="bg-white p-6 rounded-[24px] border border-[#E5E5DA] shadow-sm space-y-6">
+                  <div className={cn("grid gap-4", formData.tipe === 'pemasukan' ? "grid-cols-2" : "grid-cols-1")}>
+                    <div>
+                      <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Kategori</label>
+                      <div className="relative">
+                        <select 
+                          required
+                          className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
+                          value={formData.kategoriId}
+                          onChange={(e) => setFormData({...formData, kategoriId: e.target.value})}
+                        >
+                          <option value="">Pilih Kategori</option>
+                          {kategori.filter(k => k.tipe === formData.tipe).map(k => (
+                            <option key={k.id} value={k.id}>{k.nama}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375] pointer-events-none" />
+                      </div>
+                    </div>
+                    {formData.tipe === 'pemasukan' && (
+                      <div>
+                        <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Warga</label>
+                        <div className="relative">
                           <select 
-                            className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
+                            className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
                             value={formData.wargaId}
                             onChange={(e) => setFormData({...formData, wargaId: e.target.value})}
                           >
                             <option value="">Tidak ada</option>
                             {warga.map(w => (
-                              <option key={w.id} value={w.id}>{w.nama} ({w.noRumah})</option>
+                              <option key={w.id} value={w.id}>{w.nama}</option>
                             ))}
                           </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375] pointer-events-none" />
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Masa Iuran</label>
-                          <input 
-                            type="month" 
-                            className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
-                            value={formData.bulanIuran}
-                            onChange={(e) => setFormData({...formData, bulanIuran: e.target.value})}
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Petugas Penerima (PIC)</label>
-                          <select 
-                            className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
-                            value={formData.petugasId}
-                            onChange={(e) => setFormData({...formData, petugasId: e.target.value, picName: ''})}
-                          >
-                            <option value="">Pilih Petugas (Opsional)</option>
-                            {petugas.filter(p => p.status === 'Aktif').map(p => (
-                              <option key={p.id} value={p.id}>{p.nama} ({p.jabatan})</option>
-                            ))}
-                            <option value="other">Lainnya (Manual)</option>
-                          </select>
-                        </div>
-                        {formData.petugasId === 'other' && (
-                          <div className="col-span-2">
-                            <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Nama PIC Manual</label>
+                        {selectedWarga && (
+                          <div className="mt-2 flex items-center gap-2">
                             <input 
-                              type="text" 
-                              placeholder="Masukkan nama penerima..."
-                              className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
-                              value={formData.picName}
-                              onChange={(e) => setFormData({...formData, picName: e.target.value})}
+                              type="checkbox" 
+                              checked={selectedWarga.statusHuni === 'Menghuni'} 
+                              readOnly 
+                              className="rounded border-gray-300 text-[#5A5A40]" 
                             />
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-bold text-[#4A4A3A]">{selectedWarga.statusHuni === 'Menghuni' ? 'Aktif (MENGHUNI)' : 'Nonaktif (TIDAK MENGHUNI)'}</span>
+                              <span className="text-[9px] text-[#A3A375]">Status warga terikat waktu status berubah</span>
+                            </div>
                           </div>
                         )}
-                        {isKegiatanCategory && (
-                          <div className="col-span-2">
-                            <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1 text-blue-600">Event Terkait (Opsional)</label>
-                            <select 
-                              className="w-full px-4 py-2 text-sm bg-white border border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-bold appearance-none cursor-pointer"
-                              value={formData.eventId}
-                              onChange={(e) => setFormData({...formData, eventId: e.target.value})}
-                            >
-                              <option value="">Pilih Event</option>
-                              {events.map(e => (
-                                <option key={e.id} value={e.id}>{e.nama}</option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div className={cn(isKegiatanCategory ? "col-span-1" : "col-span-2")}>
-                          <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Petugas (PIC)</label>
-                          <select 
-                            className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
-                            value={formData.petugasId}
-                            onChange={(e) => setFormData({...formData, petugasId: e.target.value, picName: ''})}
-                          >
-                            <option value="">Pilih Petugas</option>
-                            {petugas.filter(p => p.status === 'Aktif').map(p => (
-                              <option key={p.id} value={p.id}>{p.nama} ({p.jabatan})</option>
-                            ))}
-                            <option value="other">Lainnya (Manual)</option>
-                          </select>
-                        </div>
-                        {isKegiatanCategory && (
-                          <div>
-                            <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1 text-blue-600">Event & Budget</label>
-                            <select 
-                              required={isKegiatanCategory}
-                              className="w-full px-4 py-2 text-sm bg-white border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-bold appearance-none cursor-pointer"
-                              value={formData.eventId}
-                              onChange={(e) => setFormData({...formData, eventId: e.target.value})}
-                            >
-                              <option value="">Pilih Event</option>
-                              {events.filter(e => e.status === 'Berjalan').map(e => (
-                                <option key={e.id} value={e.id}>{e.nama}</option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                        {formData.petugasId === 'other' && (
-                          <div className="col-span-2">
-                            <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Nama PIC Manual</label>
-                            <input 
-                              type="text" 
-                              placeholder="Masukkan nama PIC..."
-                              className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
-                              value={formData.picName}
-                              onChange={(e) => setFormData({...formData, picName: e.target.value})}
-                            />
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
                   </div>
+
+                  <div className={cn("grid gap-3", formData.tipe === 'pemasukan' && isIuranBulanan ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-1")}>
+                    {formData.tipe === 'pemasukan' && isIuranBulanan && (
+                      <>
+                        {/* Status Aktif / Menghuni Options */}
+                        {[200000, 180000].map((amt) => {
+                          const isDisabled = !isWargaMenghuni;
+                          const isSelected = selectedBaseAmount === amt;
+                          return (
+                            <button
+                              key={amt}
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={() => setSelectedBaseAmount(isSelected ? null : amt)}
+                              className={cn(
+                                "flex flex-col items-start gap-1 p-3 rounded-xl border transition-all text-left relative overflow-hidden",
+                                isSelected ? "bg-[#10B981]/5 border-[#10B981] text-[#065F46]" : "bg-white border-[#E5E5DA] text-[#A3A375]",
+                                isDisabled && "opacity-40 grayscale cursor-not-allowed bg-gray-50"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={cn("w-3.5 h-3.5 rounded-sm border flex items-center justify-center", isSelected ? "bg-[#10B981] border-[#10B981]" : "border-gray-300")}>
+                                  {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                </div>
+                                <p className="text-xs font-black">{amt}</p>
+                              </div>
+                              <p className="text-[9px] font-bold opacity-70 ml-5 text-emerald-600">IPL Aktif</p>
+                            </button>
+                          );
+                        })}
+
+                        {/* Status Non-Aktif / Tidak Menghuni Options */}
+                        {[175000, 155000].map((amt) => {
+                          const isDisabled = isWargaMenghuni;
+                          const isSelected = selectedBaseAmount === amt;
+                          return (
+                            <button
+                              key={amt}
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={() => setSelectedBaseAmount(isSelected ? null : amt)}
+                              className={cn(
+                                "flex flex-col items-start gap-1 p-3 rounded-xl border transition-all text-left relative overflow-hidden",
+                                isSelected ? "bg-[#10B981]/5 border-[#10B981] text-[#065F46]" : "bg-white border-[#E5E5DA] text-[#A3A375]",
+                                isDisabled && "opacity-40 grayscale cursor-not-allowed bg-gray-50"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={cn("w-3.5 h-3.5 rounded-sm border flex items-center justify-center", isSelected ? "bg-[#10B981] border-[#10B981]" : "border-gray-300")}>
+                                  {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                </div>
+                                <p className="text-xs font-black">{amt}</p>
+                              </div>
+                              <p className="text-[9px] font-bold opacity-70 ml-5 text-amber-600">IPL Nonaktif</p>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    <div className={cn("flex flex-col gap-1 p-3 rounded-xl border transition-all", customAmount !== '' ? "bg-[#10B981]/5 border-[#10B981]" : "bg-white border-[#E5E5DA]", formData.tipe === 'pemasukan' && isIuranBulanan ? "sm:col-span-1" : "")}>
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase mb-1">
+                        {formData.tipe === 'pemasukan' && isIuranBulanan ? 'Nominal Lainnya' : 'Nominal'}
+                      </p>
+                      <input 
+                        type="number" 
+                        placeholder={formData.tipe === 'pengeluaran' ? "0" : "-"}
+                        className="w-full bg-transparent border-none p-0 text-lg font-bold focus:ring-0 placeholder:text-gray-300"
+                        value={customAmount}
+                        onChange={(e) => {
+                          setCustomAmount(e.target.value === '' ? '' : Number(e.target.value));
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {formData.tipe === 'pemasukan' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3">Periode</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'].map((m, idx) => {
+                        const year = new Date().getFullYear();
+                        const monthVal = (idx + 1).toString().padStart(2, '0');
+                        const fullMonth = `${year}-${monthVal}`;
+                        const isSelected = selectedMonths.includes(fullMonth);
+                        const canSelectMore = selectedMonths.length < maxMonths;
+                        
+                        return (
+                          <button 
+                            key={m}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedMonths(selectedMonths.filter(sm => sm !== fullMonth));
+                              } else {
+                                if (canSelectMore) {
+                                  setSelectedMonths([...selectedMonths, fullMonth]);
+                                } else {
+                                  // If at limit but clicking a new one, swap if limit is 1
+                                  if (maxMonths === 1) {
+                                    setSelectedMonths([fullMonth]);
+                                  }
+                                }
+                              }
+                            }}
+                            className={cn(
+                              "py-2.5 px-1 rounded-lg text-[10px] font-bold border transition-all",
+                              isSelected ? "bg-[#C4B5FD] border-[#8B5CF6] text-[#5B21B6]" : "bg-white border-[#E5E5DA] text-[#4A4A3A] hover:bg-gray-50"
+                            )}
+                          >
+                            {m}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Keterangan (Opsional)</label>
+                  <textarea 
+                    rows={2}
+                    placeholder="Masukkan keterangan..."
+                    className="w-full px-5 py-3 bg-white border border-[#E5E5DA] rounded-2xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold placeholder:text-gray-300 text-sm resize-none"
+                    value={formData.keterangan}
+                    onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  {formData.tipe === 'pemasukan' ? (
+                    <div className={cn(!isKegiatanCategory && formData.petugasId !== 'other' ? "col-span-2" : "col-span-1")}>
+                      <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Tanggal & Waktu</label>
+                      <input 
+                        required
+                        type="datetime-local" 
+                        className="w-full px-4 py-2.5 text-xs bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
+                        value={formData.tanggal}
+                        onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                      />
+                    </div>
+                  ) : (
+                    <div className="col-span-2 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-emerald-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Waktu Transaksi</p>
+                          <p className="text-sm font-bold text-emerald-800">Otomatis (Saat Klik Simpan)</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {(formData.tipe === 'pengeluaran' || isKegiatanCategory || formData.petugasId === 'other') && (
+                    <div className={cn(formData.tipe === 'pengeluaran' ? "col-span-2" : "col-span-1")}>
+                      <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Petugas / PIC</label>
+                      <select 
+                        className="w-full px-4 py-2.5 text-xs bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
+                        value={formData.petugasId}
+                        onChange={(e) => setFormData({...formData, petugasId: e.target.value, picName: ''})}
+                      >
+                        <option value="">Pilih</option>
+                        {petugas.filter(p => p.status === 'Aktif').map(p => (
+                          <option key={p.id} value={p.id}>{p.nama}</option>
+                        ))}
+                        <option value="other">Manual</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {formData.tipe === 'pemasukan' && !isKegiatanCategory && formData.petugasId !== 'other' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Petugas / PIC (Opsional)</label>
+                    <select 
+                      className="w-full px-4 py-2.5 text-xs bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
+                      value={formData.petugasId}
+                      onChange={(e) => setFormData({...formData, petugasId: e.target.value, picName: ''})}
+                    >
+                      <option value="">Pilih Petugas</option>
+                      {petugas.filter(p => p.status === 'Aktif').map(p => (
+                        <option key={p.id} value={p.id}>{p.nama}</option>
+                      ))}
+                      <option value="other">Lainnya (Manual)</option>
+                    </select>
+                  </div>
+                )}
+
+                {formData.petugasId === 'other' && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1">Nama PIC Manual</label>
+                    <input 
+                      type="text" 
+                      placeholder="Masukkan nama..."
+                      className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
+                      value={formData.picName}
+                      onChange={(e) => setFormData({...formData, picName: e.target.value})}
+                    />
+                  </div>
+                )}
+
+                {isKegiatanCategory && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#4A4A3A] mb-1.5 ml-1 text-blue-600">Event Terkait (Opsional)</label>
+                    <select 
+                      className="w-full px-4 py-2.5 text-sm bg-white border border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none font-bold appearance-none cursor-pointer"
+                      value={formData.eventId}
+                      onChange={(e) => setFormData({...formData, eventId: e.target.value})}
+                    >
+                      <option value="">Pilih Event</option>
+                      {events.map(e => (
+                        <option key={e.id} value={e.id}>{e.nama}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="pt-4 flex gap-4">
                   <button 
@@ -511,10 +741,17 @@ export default function TransaksiList() {
                   </button>
                   <button 
                     type="submit" 
-                    className="flex-1 px-6 py-4 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#5A5A40]/30 flex items-center justify-center gap-2"
+                    disabled={submitting}
+                    className="flex-1 px-6 py-4 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#5A5A40]/30 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <CreditCard className="w-5 h-5" />
-                    Simpan Transaksi
+                    {submitting ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <CreditCard className="w-5 h-5" />
+                        Simpan Transaksi
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

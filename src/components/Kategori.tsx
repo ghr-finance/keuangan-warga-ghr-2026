@@ -20,6 +20,15 @@ export default function KategoriList() {
     return () => unsubK();
   }, []);
 
+  const [deletingKategoriId, setDeletingKategoriId] = useState<string | null>(null);
+
+  const handleDeleteKategori = async () => {
+    if (deletingKategoriId) {
+      await dbService.delete('kategori', deletingKategoriId);
+      setDeletingKategoriId(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
@@ -58,6 +67,52 @@ export default function KategoriList() {
     }
   };
 
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [showConfirmClean, setShowConfirmClean] = useState(false);
+  const [cleanResult, setCleanResult] = useState<{ count: number } | null>(null);
+
+  const removeDuplicates = async () => {
+    setIsCleaning(true);
+    setShowConfirmClean(false);
+    try {
+    const transactions = await dbService.getAll('transaksi') as any[];
+      const seen = new Set();
+      let deletedCount = 0;
+
+      // Sort by createdAt to keep the first one
+      const sortedTransactions = [...transactions].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      for (const t of sortedTransactions) {
+        // Deterministic key for duplicates
+        let key = '';
+        const cleanKeterangan = (t.keterangan || '').trim().toLowerCase();
+        
+        if (t.bulanIuran && t.wargaId) {
+          // For Iuran, if same resident and same month, it's a duplicate regardless of day
+          key = `iuran_${t.wargaId}_${t.bulanIuran}`;
+        } else {
+          // For other transactions, use the day + description + amount
+          const dateOnly = new Date(t.tanggal).setHours(0, 0, 0, 0);
+          key = `other_${cleanKeterangan}_${dateOnly}_${t.jumlah}_${t.tipe}_${t.wargaId || 'public'}`;
+        }
+
+        if (seen.has(key)) {
+          await dbService.delete('transaksi', t.id);
+          // Small delay to prevent rate issues if many duplicates
+          await new Promise(resolve => setTimeout(resolve, 50));
+          deletedCount++;
+        } else {
+          seen.add(key);
+        }
+      }
+      setCleanResult({ count: deletedCount });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -66,6 +121,17 @@ export default function KategoriList() {
           <p className="text-[#A3A375] font-medium mt-2">Sesuaikan kategori transaksi sesuai kebutuhan lingkungan.</p>
         </div>
         <div className="flex gap-4">
+          <button 
+            onClick={() => setShowConfirmClean(true)}
+            disabled={isCleaning}
+            className="px-6 py-3.5 bg-red-50 border border-red-100 text-red-700 rounded-full font-bold hover:bg-red-100 transition-all text-sm shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[140px]"
+          >
+            {isCleaning ? (
+              <div className="w-4 h-4 border-2 border-red-700 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              'Bersihkan Ganda'
+            )}
+          </button>
           <button 
             onClick={initializeDefaults}
             className="px-6 py-3.5 bg-white border border-[#E5E5DA] text-[#4A4A3A] rounded-full font-bold hover:bg-gray-50 transition-all text-sm shadow-sm"
@@ -120,7 +186,7 @@ export default function KategoriList() {
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => dbService.delete('kategori', k.id)}
+                    onClick={() => setDeletingKategoriId(k.id)}
                     className="p-2.5 text-[#E5E5DA] hover:text-[#8B4513] hover:bg-[#fff5f5] transition-all rounded-full opacity-0 group-hover:opacity-100"
                     title="Hapus"
                   >
@@ -157,7 +223,7 @@ export default function KategoriList() {
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => dbService.delete('kategori', k.id)}
+                    onClick={() => setDeletingKategoriId(k.id)}
                     className="p-2.5 text-[#E5E5DA] hover:text-[#8B4513] hover:bg-[#fff5f5] transition-all rounded-full opacity-0 group-hover:opacity-100"
                     title="Hapus"
                   >
@@ -170,8 +236,98 @@ export default function KategoriList() {
         </div>
       </div>
 
-      {/* Modal Kategori */}
       <AnimatePresence>
+        {deletingKategoriId && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5E5DA] p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#3A3A2A] mb-2">Hapus Kategori?</h3>
+              <p className="text-[#A3A375] font-medium mb-8">
+                Semua transaksi dengan kategori ini akan kehilangan labelnya. Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setDeletingKategoriId(null)}
+                  className="flex-1 px-6 py-3 rounded-full border border-[#E5E5DA] font-bold text-[#A3A375]"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleDeleteKategori}
+                  className="flex-1 px-6 py-3 rounded-full bg-red-600 text-white font-bold"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showConfirmClean && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5E5DA] p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#3A3A2A] mb-2">Bersihkan Data Ganda?</h3>
+              <p className="text-[#A3A375] font-medium mb-8">
+                Transaksi dengan data identik pada hari yang sama akan dihapus secara otomatis. Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowConfirmClean(false)}
+                  className="flex-1 px-6 py-3 rounded-full border border-[#E5E5DA] font-bold text-[#A3A375]"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={removeDuplicates}
+                  className="flex-1 px-6 py-3 rounded-full bg-red-600 text-white font-bold"
+                >
+                  Ya, Bersihkan
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {cleanResult && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5E5DA] p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Check className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#3A3A2A] mb-2">Selesai Dibersihkan</h3>
+              <p className="text-[#A3A375] font-medium mb-8">
+                Berhasil membersihkan {cleanResult.count} data transaksi ganda. Data keuangan sekarang lebih akurat.
+              </p>
+              <button 
+                onClick={() => setCleanResult(null)}
+                className="w-full px-6 py-3 rounded-full bg-[#5A5A40] text-white font-bold"
+              >
+                Tutup
+              </button>
+            </motion.div>
+          </div>
+        )}
+
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
             <motion.div 

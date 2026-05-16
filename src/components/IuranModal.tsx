@@ -16,7 +16,14 @@ interface IuranModalProps {
 export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }: IuranModalProps) {
   const [kategori, setKategori] = useState<Kategori[]>([]);
   const [loading, setLoading] = useState(false);
+  const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   
+  useEffect(() => {
+    const unsubT = dbService.subscribe('transaksi', setTransaksi);
+    return () => unsubT();
+  }, []);
+
   const [formData, setFormData] = useState({
     wargaId: '',
     bulanIuran: format(new Date(), 'yyyy-MM'),
@@ -58,21 +65,36 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
     }
   }, [formData.bulanIuran, formData.wargaId, wargaList]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent, force: boolean = false) => {
+    if (e) e.preventDefault();
     if (!formData.wargaId || !formData.bulanIuran) return;
     
+    // Duplication prevention: check by monthId OR by matching description
+    const currentWarga = wargaList.find(w => w.id === formData.wargaId);
+    const targetKeterangan = `Iuran Bulanan - ${currentWarga?.nama} (${format(new Date(formData.bulanIuran), 'MMMM yyyy')})`.trim().toLowerCase();
+    
+    const isDuplicate = transaksi.some(t => {
+      const tCleanKeterangan = (t.keterangan || '').trim().toLowerCase();
+      return (t.wargaId === formData.wargaId && t.bulanIuran === formData.bulanIuran && t.tipe === 'pemasukan') ||
+             (t.wargaId === formData.wargaId && tCleanKeterangan === targetKeterangan && t.tipe === 'pemasukan');
+    });
+
+    if (isDuplicate && !force) {
+      setDuplicateWarning(`Iuran untuk ${currentWarga?.nama} pada ${format(new Date(formData.bulanIuran), 'MMMM yyyy')} sudah ada di catatan.`);
+      return;
+    }
+
     setLoading(true);
     try {
       const iuranKategori = kategori[0]; // Take the first iuran category found
       if (!iuranKategori) {
-        alert('Kategori "Iuran" belum dibuat. Silakan buat di Pengaturan.');
         setLoading(false);
         return;
       }
 
       await dbService.add('transaksi', {
         ...formData,
+        keterangan: formData.keterangan.trim(),
         tipe: 'pemasukan',
         kategoriId: iuranKategori.id,
         tanggal: new Date(formData.tanggal).getTime(),
@@ -124,6 +146,37 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
 
           <form onSubmit={handleSubmit} className="p-10 space-y-8">
             <div className="space-y-6">
+              {duplicateWarning && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl animate-in fade-in slide-in-from-top-2">
+                  <div className="flex gap-4">
+                    <Info className="w-6 h-6 text-amber-600 shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-bold text-amber-900 mb-1">Data Ganda Terdeteksi</h4>
+                      <p className="text-xs text-amber-700 leading-relaxed mb-4">{duplicateWarning}</p>
+                      <div className="flex gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => setDuplicateWarning(null)}
+                          className="px-4 py-2 bg-white border border-amber-200 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                        >
+                          Batal
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setDuplicateWarning(null);
+                            handleSubmit(null as any, true);
+                          }}
+                          className="px-4 py-2 bg-amber-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider"
+                        >
+                          Tetap Simpan
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Warga Selection */}
               <div>
                 <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Pilih Warga</label>
@@ -141,6 +194,17 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
                   </select>
                   <User className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
                 </div>
+                {formData.wargaId && (
+                  <div className="mt-2 ml-4 flex items-center gap-2">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      wargaList.find(w => w.id === formData.wargaId)?.statusHuni === 'Menghuni' ? "bg-emerald-500" : "bg-amber-500"
+                    )} />
+                    <span className="text-[10px] font-bold text-[#A3A375]">
+                      Status: {wargaList.find(w => w.id === formData.wargaId)?.statusHuni === 'Menghuni' ? 'Aktif (MENGHUNI)' : 'Nonaktif (TIDAK MENGHUNI)'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Month & Amount */}

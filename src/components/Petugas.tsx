@@ -9,10 +9,12 @@ import { Transaksi } from '../types';
 export default function PetugasList() {
   const [petugas, setPetugas] = useState<Petugas[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [selectedPetugasForDetail, setSelectedPetugasForDetail] = useState<Petugas | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [petugasTransactions, setPetugasTransactions] = useState<Transaksi[]>([]);
   
   const [formData, setFormData] = useState({
@@ -51,15 +53,22 @@ export default function PetugasList() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      await dbService.update('petugas', editingId, formData);
-    } else {
-      await dbService.add('petugas', {
-        ...formData,
-        createdAt: Date.now()
-      });
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await dbService.update('petugas', editingId, formData);
+      } else {
+        await dbService.add('petugas', {
+          ...formData,
+          createdAt: Date.now()
+        });
+      }
+      closeModal();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
     }
-    closeModal();
   };
 
   const closeModal = () => {
@@ -80,9 +89,10 @@ export default function PetugasList() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Hapus petugas ini?')) {
-      await dbService.delete('petugas', id);
+  const handleDelete = async () => {
+    if (deletingId) {
+      await dbService.delete('petugas', deletingId);
+      setDeletingId(null);
     }
   };
 
@@ -214,7 +224,7 @@ export default function PetugasList() {
                             
                             <button 
                               onClick={() => {
-                                handleDelete(p.id);
+                                setDeletingId(p.id);
                                 setActiveMenuId(null);
                               }}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors border-t border-[#F5F5F0]"
@@ -242,6 +252,39 @@ export default function PetugasList() {
       </div>
 
       <AnimatePresence>
+        {deletingId && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5E5DA] p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#3A3A2A] mb-2">Hapus Petugas?</h3>
+              <p className="text-[#A3A375] font-medium mb-8">
+                Tindakan ini akan menghapus data petugas secara permanen.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setDeletingId(null)}
+                  className="flex-1 px-6 py-3 rounded-full border border-[#E5E5DA] font-bold text-[#A3A375]"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  className="flex-1 px-6 py-3 rounded-full bg-red-600 text-white font-bold"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {isModalOpen && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#3A3A2A]/60 backdrop-blur-md">
             <motion.div 
@@ -330,9 +373,10 @@ export default function PetugasList() {
                   </button>
                   <button 
                     type="submit" 
-                    className="flex-1 px-6 py-4 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#5A5A40]/30"
+                    disabled={isSubmitting}
+                    className="flex-1 px-6 py-4 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#5A5A40]/30 disabled:opacity-50"
                   >
-                    {editingId ? 'Simpan Perubahan' : 'Simpan Petugas'}
+                    {isSubmitting ? 'Memproses...' : (editingId ? 'Simpan Perubahan' : 'Simpan Petugas')}
                   </button>
                 </div>
               </form>

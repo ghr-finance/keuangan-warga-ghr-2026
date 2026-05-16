@@ -94,7 +94,7 @@ export default function Dashboard() {
 
   // Calculate arrears (simplified: check if Warga has paid iuran in CURRENT month)
   const currentMonthStr = format(new Date(), 'yyyy-MM');
-  const wargaWajib = warga.filter(w => w.isIuranWajib && w.status === 'Aktif');
+  const wargaWajib = warga.filter(w => w.isIuranWajib && w.statusHuni === 'Menghuni');
   const paidThisMonth = new Set(
     transaksi
       .filter(t => t.bulanIuran === currentMonthStr)

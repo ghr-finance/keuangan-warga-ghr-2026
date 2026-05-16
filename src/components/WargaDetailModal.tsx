@@ -20,17 +20,35 @@ interface WargaDetailModalProps {
 export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, kategori, tunggakanMacetList }: WargaDetailModalProps) {
   const [payAmount, setPayAmount] = React.useState<string>('');
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null);
 
   if (!isOpen || !warga) return null;
 
   // Filter tunggakan macet 2025 for this warga
   const entryMacet = tunggakanMacetList.find(t => t.wargaId === warga.id);
 
-  const handleUpdateMacet = async () => {
+  const handleUpdateMacet = async (force: boolean = false) => {
     if (!entryMacet || !payAmount) return;
+    
+    const amount = parseInt(payAmount);
+
+    // Duplicate check: check if a payment for "Tunggakan Macet 2025" with same amount was added today
+    const todayStart = new Date().setHours(0,0,0,0);
+    const isDuplicate = transaksi.some(t => {
+      const transDay = new Date(t.tanggal).setHours(0,0,0,0);
+      return t.wargaId === warga.id && 
+             t.jumlah === amount && 
+             t.keterangan.includes('Tunggakan Macet 2025') &&
+             transDay === todayStart;
+    });
+
+    if (isDuplicate && !force) {
+      setDuplicateWarning('Pembayaran macet identik sudah tercatat hari ini.');
+      return;
+    }
+
     setIsUpdating(true);
     try {
-      const amount = parseInt(payAmount);
       const newPaid = entryMacet.nominalBayar + amount;
       const newSisa = Math.max(0, entryMacet.totalTagihan - newPaid);
       const newStatus = newSisa === 0 ? 'Lunas' : 'Belum Lunas';
@@ -54,6 +72,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
       });
 
       setPayAmount('');
+      setDuplicateWarning(null);
     } catch (error) {
       console.error(error);
     } finally {
@@ -124,7 +143,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     doc.setTextColor(90, 90, 64); // #5A5A40
     doc.text(`Nomor Rumah : ${warga.noRumah}`, 25, 57);
     doc.text(`Nomor Telp  : ${warga.phone || '-'}`, 25, 62);
-    doc.text(`Status Huni : ${warga.statusHuni}`, 25, 67);
+    doc.text(`Status Huni : ${warga.statusHuni} (${warga.status})`, 25, 67);
 
     // Summary Stats
     const totalKontribusi = wargaTransaksi.reduce((acc, t) => acc + (t.tipe === 'pemasukan' ? t.jumlah : 0), 0);
@@ -254,9 +273,9 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   </div>
                   <span className={cn(
                     "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
-                    warga.statusHuni === 'Menghuni' ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"
+                    warga.statusHuni === 'Menghuni' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                   )}>
-                    {warga.statusHuni}
+                    {warga.statusHuni} ({warga.status})
                   </span>
                 </div>
               </div>
@@ -344,28 +363,54 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   </div>
 
                   {entryMacet.status !== 'Lunas' && (
-                    <div className="flex flex-col sm:flex-row items-end gap-4 bg-white/40 p-6 rounded-3xl border border-[#8B4513]/10">
-                      <div className="flex-1 w-full">
-                        <label className="block text-[10px] font-black text-[#8B4513] uppercase tracking-widest mb-2">Angsur Cicilan (Nominal Bayar)</label>
-                        <div className="relative">
-                          <Calculator className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375]" />
-                          <input 
-                            type="number"
-                            placeholder="Contoh: 180000"
-                            className="w-full pl-11 pr-5 py-3 bg-white rounded-2xl border border-[#E5E5DA] focus:ring-2 focus:ring-[#8B4513] focus:outline-none font-bold text-sm"
-                            value={payAmount}
-                            onChange={(e) => setPayAmount(e.target.value)}
-                          />
+                    <div className="flex flex-col gap-4 bg-white/40 p-6 rounded-3xl border border-[#8B4513]/10">
+                      {duplicateWarning && (
+                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl animate-in fade-in slide-in-from-top-1 mb-2">
+                          <div className="flex gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs font-bold text-amber-900 mb-2">{duplicateWarning} Tetap simpan data baru?</p>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => setDuplicateWarning(null)}
+                                  className="px-3 py-1.5 bg-white border border-amber-200 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                >
+                                  Batal
+                                </button>
+                                <button 
+                                  onClick={() => handleUpdateMacet(true)}
+                                  className="px-3 py-1.5 bg-amber-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                >
+                                  Ya, Simpan
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
+                      )}
+                      <div className="flex flex-col sm:flex-row items-end gap-4">
+                        <div className="flex-1 w-full">
+                          <label className="block text-[10px] font-black text-[#8B4513] uppercase tracking-widest mb-2">Angsur Cicilan (Nominal Bayar)</label>
+                          <div className="relative">
+                            <Calculator className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375]" />
+                            <input 
+                              type="number"
+                              placeholder="Contoh: 180000"
+                              className="w-full pl-11 pr-5 py-3 bg-white rounded-2xl border border-[#E5E5DA] focus:ring-2 focus:ring-[#8B4513] focus:outline-none font-bold text-sm"
+                              value={payAmount}
+                              onChange={(e) => setPayAmount(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          disabled={!payAmount || isUpdating}
+                          onClick={() => handleUpdateMacet(false)}
+                          className="px-8 py-3.5 bg-[#8B4513] text-white rounded-full font-bold text-sm shadow-xl shadow-[#8B4513]/20 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center gap-2"
+                        >
+                          <Save className="w-4 h-4" />
+                          Update Status
+                        </button>
                       </div>
-                      <button 
-                        disabled={!payAmount || isUpdating}
-                        onClick={handleUpdateMacet}
-                        className="px-8 py-3.5 bg-[#8B4513] text-white rounded-full font-bold text-sm shadow-xl shadow-[#8B4513]/20 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center gap-2"
-                      >
-                        <Save className="w-4 h-4" />
-                        Update Status
-                      </button>
                     </div>
                   )}
                 </div>

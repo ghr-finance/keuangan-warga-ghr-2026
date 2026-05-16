@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
-import { Event, Transaksi, EventStatus } from '../types';
+import { Event, Transaksi, EventStatus, Warga } from '../types';
 import { Plus, Calendar, Target, TrendingUp, TrendingDown, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cn, formatDate, formatCurrency } from '../lib/utils';
 import { format } from 'date-fns';
@@ -9,7 +9,10 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function EventList() {
   const [events, setEvents] = useState<Event[]>([]);
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
+  const [warga, setWarga] = useState<Warga[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     nama: '',
@@ -22,22 +25,31 @@ export default function EventList() {
   useEffect(() => {
     const unsubE = dbService.subscribe('events', setEvents);
     const unsubT = dbService.subscribe('transaksi', setTransaksi);
+    const unsubW = dbService.subscribe('warga', setWarga);
     return () => {
       unsubE();
       unsubT();
+      unsubW();
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await dbService.add('events', {
-      ...formData,
-      tanggal: new Date(formData.tanggal).getTime(),
-      budget: Number(formData.budget),
-      createdAt: Date.now()
-    });
-    setIsModalOpen(false);
-    setFormData({ nama: '', tanggal: format(new Date(), "yyyy-MM-dd"), budget: 0, deskripsi: '', status: 'Berjalan' });
+    setIsSubmitting(true);
+    try {
+      await dbService.add('events', {
+        ...formData,
+        tanggal: new Date(formData.tanggal).getTime(),
+        budget: Number(formData.budget),
+        createdAt: Date.now()
+      });
+      setIsModalOpen(false);
+      setFormData({ nama: '', tanggal: format(new Date(), "yyyy-MM-dd"), budget: 0, deskripsi: '', status: 'Berjalan' });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -91,7 +103,7 @@ export default function EventList() {
                       {event.status === 'Berjalan' ? <CheckCircle2 className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
                     </button>
                     <button 
-                      onClick={() => dbService.delete('events', event.id)}
+                      onClick={() => setDeletingId(event.id)}
                       className="p-2 text-[#E5E5DA] hover:text-[#8B4513] transition-colors rounded-xl hover:bg-[#fff5f5]"
                     >
                       <Trash2 className="w-5 h-5" />
@@ -149,7 +161,14 @@ export default function EventList() {
                       <div key={t.id} className="flex items-center justify-between gap-4 bg-white/50 p-3 rounded-xl border border-[#E5E5DA]">
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-[#4A4A3A] truncate">{t.keterangan}</p>
-                          <p className="text-[10px] text-[#A3A375] font-medium">{formatDate(t.tanggal)}</p>
+                          <p className="text-[10px] text-[#A3A375] font-bold">
+                            {t.wargaId && (
+                              <span className="text-[#5A5A40] mr-1.5">
+                                {warga.find(w => w.id === t.wargaId)?.nama} •
+                              </span>
+                            )}
+                            {formatDate(t.tanggal)}
+                          </p>
                         </div>
                         <p className={cn(
                           "text-xs font-black shrink-0",
@@ -175,6 +194,42 @@ export default function EventList() {
 
       {/* Modal Planning */}
       <AnimatePresence>
+        {deletingId && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5E5DA] p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#3A3A2A] mb-2">Hapus Kegiatan?</h3>
+              <p className="text-[#A3A375] font-medium mb-8">
+                Data kegiatan dan target anggaran akan dihapus secara permanen.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setDeletingId(null)}
+                  className="flex-1 px-6 py-3 rounded-full border border-[#E5E5DA] font-bold text-[#A3A375]"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={async () => {
+                    await dbService.delete('events', deletingId);
+                    setDeletingId(null);
+                  }}
+                  className="flex-1 px-6 py-3 rounded-full bg-red-600 text-white font-bold"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#3A3A2A]/40 backdrop-blur-sm">
             <motion.div 
@@ -247,9 +302,10 @@ export default function EventList() {
                   </button>
                   <button 
                     type="submit" 
-                    className="flex-1 px-6 py-4 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-2xl shadow-[#5A5A40]/30"
+                    disabled={isSubmitting}
+                    className="flex-1 px-6 py-4 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-2xl shadow-[#5A5A40]/30 disabled:opacity-50"
                   >
-                    Simpan Rencana
+                    {isSubmitting ? 'Memproses...' : 'Simpan Rencana'}
                   </button>
                 </div>
               </form>

@@ -23,30 +23,59 @@ export function calculateArrears(
   const startDate = new Date(2026, 0, 1);
   const currentMonth = startOfMonth(today);
   
-  // 1. Iuran Bulanan
-  const catIuran = kategori.find(k => k.nama === 'Iuran Bulanan' && k.tipe === 'pemasukan');
-  if (catIuran) {
-    let checkDate = startDate;
-    while (isBefore(checkDate, addMonths(currentMonth, 1))) {
-      const monthStr = format(checkDate, 'yyyy-MM');
+  // 1. Iuran Bulanan & Iuran RT
+  const catIuranBulanan = kategori.find(k => k.nama === 'Iuran Bulanan' && k.tipe === 'pemasukan');
+  const catIuranRT = kategori.find(k => k.nama === 'Iuran RT' && k.tipe === 'pemasukan');
+  
+  const monthlyArrearsConfigs = [
+    { 
+      cat: catIuranBulanan, 
+      label: 'Iuran Bulanan', 
+      getAmount: (m: string, s: string) => getMonthlyFee(m, s),
+      shouldApply: () => true 
+    },
+    { 
+      cat: catIuranRT, 
+      label: 'Iuran RT', 
+      getAmount: () => 20000,
+      shouldApply: (w: Warga) => {
+        const specialNames = ['wawan', 'ali', 'zulkarnaen', 'temi'];
+        return w.isIuranRT || specialNames.some(name => w.nama.toLowerCase().includes(name));
+      }
+    }
+  ].filter(c => c.cat);
+
+  let checkDate = startDate;
+  while (isBefore(checkDate, addMonths(currentMonth, 1))) {
+    const monthStr = format(checkDate, 'yyyy-MM');
+    const monthLabel = format(checkDate, 'MMMM yyyy');
+    
+    // Determine effective status for this month - use current status
+    // Flipping logic based on statusHuniUpdatedAt is often incorrect since updates happen for non-status reasons
+    const effectiveStatus = warga.statusHuni;
+
+    monthlyArrearsConfigs.forEach(config => {
+      if (!config.cat || !config.shouldApply(warga)) return;
+
       const hasPaid = transaksi.some(t => 
         t.wargaId === warga.id && 
         t.bulanIuran === monthStr && 
         t.tipe === 'pemasukan' &&
-        t.kategoriId === catIuran.id
+        t.kategoriId === config.cat!.id
       );
 
       if (!hasPaid) {
         arrearsItems.push({
           type: 'bulanan',
           month: monthStr,
-          amount: getMonthlyFee(monthStr, warga.statusHuni),
-          label: `Iuran Bulanan - ${format(checkDate, 'MMMM yyyy')}`,
-          categoryId: catIuran.id
+          amount: config.getAmount(monthStr, effectiveStatus),
+          label: `${config.label} - ${monthLabel}`,
+          categoryId: config.cat!.id
         });
       }
-      checkDate = addMonths(checkDate, 1);
-    }
+    });
+    
+    checkDate = addMonths(checkDate, 1);
   }
 
   // 2. THR
@@ -60,7 +89,8 @@ export function calculateArrears(
     );
 
     if (!hasPaidTHR) {
-      const thrAmount = warga.statusHuni === 'Menghuni' ? 180000 : 155000;
+      const effectiveStatus = warga.statusHuni;
+      const thrAmount = effectiveStatus === 'Menghuni' ? 180000 : 155000;
       arrearsItems.push({
         type: 'thr',
         amount: thrAmount,
@@ -80,7 +110,7 @@ export function calculateArrears(
       !t.keterangan.toLowerCase().includes('rapat warga')
     );
 
-    const cleanLabel = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\(.*\)/g, '').trim();
+    const cleanLabel = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\(.*\)/g, '').replace(/^iuran\s+/g, '').trim();
     const mandatoryKegiatanNormalized = Array.from(new Set(otherKegiatanPayments.map(t => cleanLabel(t.keterangan))));
 
     mandatoryKegiatanNormalized.forEach(normLabel => {
@@ -90,7 +120,7 @@ export function calculateArrears(
         t.wargaId === warga.id && 
         t.tipe === 'pemasukan' && 
         t.kategoriId === catKegiatan.id &&
-        cleanLabel(t.keterangan) === normLabel
+        (cleanLabel(t.keterangan) === normLabel || cleanLabel(t.keterangan).includes(normLabel))
       );
 
       if (!hasPaidThisKegiatan) {

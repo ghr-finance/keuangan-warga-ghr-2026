@@ -177,6 +177,10 @@ export default function App() {
         // Fetch all residents
         const residents = await dbService.getAll('warga') as any[];
         
+        const categories = await dbService.getAll('kategori') as any[];
+        const bulananCatId = categories.find(c => c.nama === 'Iuran Bulanan' && c.tipe === 'pemasukan')?.id;
+        if (!bulananCatId) return;
+
         const months = [
           { name: 'Januari', month: '01', amount: 180000 },
           { name: 'Februari', month: '02', amount: 180000 },
@@ -195,7 +199,7 @@ export default function App() {
                 tanggal: new Date(2026, monthIndex, 1).getTime(),
                 jumlah: m.amount,
                 tipe: 'pemasukan' as const,
-                kategoriId: 'twzek4iqF0nEr6o3nYuo',
+                kategoriId: bulananCatId,
                 wargaId: citizen.id,
                 bulanIuran: `2026-${m.month}`,
                 keterangan: `Iuran Bulanan - ${citizen.nama} (${m.name} 2026)`,
@@ -222,6 +226,10 @@ export default function App() {
           { name: 'Novan', endMonth: 2 }, // Jan-Mar (0-2)
         ];
 
+        const categories = await dbService.getAll('kategori') as any[];
+        const bulananCatId = categories.find(c => c.nama === 'Iuran Bulanan' && c.tipe === 'pemasukan')?.id;
+        if (!bulananCatId) return;
+
         const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei'];
         let count = 0;
 
@@ -237,7 +245,7 @@ export default function App() {
               tanggal: new Date(2026, monthIndex, 1).getTime(),
               jumlah: amount,
               tipe: 'pemasukan' as const,
-              kategoriId: 'twzek4iqF0nEr6o3nYuo',
+              kategoriId: bulananCatId,
               wargaId: citizen.id,
               bulanIuran: `2026-${monthStr}`,
               keterangan: `Iuran Bulanan - ${citizen.nama} (${monthNames[monthIndex]} 2026)`,
@@ -259,6 +267,10 @@ export default function App() {
         const citizen = residents.find(r => r.nama.toLowerCase().includes('herman'));
         if (!citizen) return;
 
+        const categories = await dbService.getAll('kategori') as any[];
+        const bulananCatId = categories.find(c => c.nama === 'Iuran Bulanan' && c.tipe === 'pemasukan')?.id;
+        if (!bulananCatId) return;
+
         const months = [
           { name: 'Januari', month: '01' },
           { name: 'Februari', month: '02' },
@@ -277,7 +289,7 @@ export default function App() {
             tanggal: new Date(2026, monthIndex, 1).getTime(),
             jumlah: amount,
             tipe: 'pemasukan' as const,
-            kategoriId: 'twzek4iqF0nEr6o3nYuo',
+            kategoriId: bulananCatId,
             wargaId: citizen.id,
             bulanIuran: `2026-${m.month}`,
             keterangan: `Iuran Bulanan - ${citizen.nama} (${m.name} 2026)`,
@@ -301,6 +313,10 @@ export default function App() {
           { name: 'Wawan', endMonth: 4 }, // Jan-May (0-4)
         ];
 
+        const categories = await dbService.getAll('kategori') as any[];
+        const rtCatId = categories.find(c => c.nama === 'Iuran RT' && c.tipe === 'pemasukan')?.id;
+        if (!rtCatId) return;
+
         const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei'];
         let count = 0;
 
@@ -315,7 +331,7 @@ export default function App() {
               tanggal: new Date(2026, monthIndex, 1).getTime(),
               jumlah: 20000,
               tipe: 'pemasukan' as const,
-              kategoriId: 'twzek4iqF0nEr6o3nYuo',
+              kategoriId: rtCatId,
               wargaId: citizen.id,
               bulanIuran: `2026-${monthStr}`,
               keterangan: `Iuran RT - ${citizen.nama} (${monthNames[monthIndex]} 2026)`,
@@ -768,6 +784,235 @@ export default function App() {
         console.log(`Finished cleaning duplicates. Deleted ${deletedCount} transactions.`);
       };
 
+      const fixTemiData = async () => {
+        const hasRun = localStorage.getItem('fix_temi_v2');
+        if (hasRun) return;
+
+        const residents = await dbService.getAll('warga') as any[];
+        const temi = residents.find(r => r.nama.toLowerCase().includes('temi'));
+        if (temi) {
+          console.log('Fixing Temi data inconsistency (v2)...');
+          await dbService.update('warga', temi.id, {
+            statusHuniUpdatedAt: 0
+          });
+        }
+        localStorage.setItem('fix_temi_v2', 'true');
+      };
+
+      const globalDataAudit = async () => {
+        const hasRun = localStorage.getItem('global_data_audit_v4');
+        if (hasRun) return;
+
+        console.log('Running comprehensive global data audit v4...');
+        const transactions = await dbService.getAll('transaksi') as any[];
+        const categories = await dbService.getAll('kategori') as any[];
+        const residents = await dbService.getAll('warga') as any[];
+
+        const bulananCat = categories.find(c => c.nama === 'Iuran Bulanan' && c.tipe === 'pemasukan');
+        const rtCat = categories.find(c => c.nama === 'Iuran RT' && c.tipe === 'pemasukan');
+        const thrCat = categories.find(c => c.nama.toLowerCase().includes('thr') && c.tipe === 'pemasukan');
+        const kegiatanCat = categories.find(c => c.nama.toLowerCase().includes('kegiatan') && c.tipe === 'pemasukan');
+
+        if (!bulananCat || !rtCat) return;
+
+        let fixedCount = 0;
+        let deletedCount = 0;
+
+        // 1. Reset Status Updated At for clean slate
+        for (const r of residents) {
+          if (r.statusHuniUpdatedAt !== 0) {
+            await dbService.update('warga', r.id, { statusHuniUpdatedAt: 0 });
+            fixedCount++;
+          }
+        }
+
+        // 2. Fix transaction metadata
+        for (const t of transactions) {
+          const desc = (t.keterangan || '').toLowerCase();
+          let needsUpdate = false;
+          let updateData: any = {};
+
+          // A. Fix Category
+          let correctCatId = t.kategoriId;
+          if (desc.includes('iuran bulanan')) {
+            correctCatId = bulananCat.id;
+          } else if (desc.includes('iuran rt')) {
+            correctCatId = rtCat.id;
+          } else if (desc.includes('thr') && thrCat) {
+            correctCatId = thrCat.id;
+          } else if (desc.includes('bukber') && kegiatanCat) {
+            correctCatId = kegiatanCat.id;
+            // Also standardize Bukber labels
+            if (!t.keterangan.includes('Iuran Bukber')) {
+              updateData.keterangan = 'Iuran Bukber';
+              needsUpdate = true;
+            }
+          } else if (t.kategoriId === 'twzek4iqF0nEr6o3nYuo') {
+            correctCatId = bulananCat.id;
+          }
+
+          if (correctCatId !== t.kategoriId) {
+            updateData.kategoriId = correctCatId;
+            needsUpdate = true;
+          }
+
+          // B. Fix Missing BulanIuran
+          if (!t.bulanIuran && (correctCatId === bulananCat.id || correctCatId === rtCat.id)) {
+            const monthMap: Record<string, string> = {
+              'januari': '01', 'februari': '02', 'maret': '03', 'april': '04', 'mei': '05', 
+              'juni': '06', 'juli': '07', 'agustus': '08', 'september': '09', 'oktober': '10', 
+              'november': '11', 'desember': '12'
+            };
+            
+            for (const [mName, mVal] of Object.entries(monthMap)) {
+              if (desc.includes(mName)) {
+                updateData.bulanIuran = `2026-${mVal}`;
+                needsUpdate = true;
+                break;
+              }
+            }
+          }
+
+          // C. Normalize BulanIuran (2026-1 -> 2026-01)
+          if (t.bulanIuran || updateData.bulanIuran) {
+            const b = updateData.bulanIuran || t.bulanIuran;
+            if (b.includes('-')) {
+              const [y, m] = b.split('-');
+              if (m.length === 1) {
+                updateData.bulanIuran = `${y}-${m.padStart(2, '0')}`;
+                needsUpdate = true;
+              }
+            }
+          }
+
+          if (needsUpdate) {
+            await dbService.update('transaksi', t.id, updateData);
+            fixedCount++;
+          }
+        }
+
+        // 3. Robust Duplicate Removal (Pemasukan only)
+        const cleanupDuplicates = async () => {
+          const freshTrans = await dbService.getAll('transaksi') as any[];
+          const relevant = freshTrans.filter(t => t.tipe === 'pemasukan' && t.wargaId && (t.bulanIuran || t.kategoriId === kegiatanCat?.id));
+          
+          const groups: Record<string, any[]> = {};
+          for (const t of relevant) {
+            const key = t.bulanIuran 
+              ? `${t.wargaId}_${t.kategoriId}_${t.bulanIuran}`
+              : `${t.wargaId}_${t.kategoriId}_${t.keterangan.toLowerCase().trim()}`;
+            
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(t);
+          }
+
+          for (const key in groups) {
+            const group = groups[key];
+            if (group.length > 1) {
+              group.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              const duplicates = group.slice(1);
+              for (const dup of duplicates) {
+                await dbService.delete('transaksi', dup.id);
+                deletedCount++;
+              }
+            }
+          }
+        };
+
+        await cleanupDuplicates();
+
+        console.log(`Audit v4 complete: Fixed ${fixedCount}, Deleted ${deletedCount}.`);
+        localStorage.setItem('global_data_audit_v4', 'true');
+      };
+
+      const fixWawanData = async () => {
+        const hasRun = localStorage.getItem('fix_wawan_v1');
+        if (hasRun) return;
+
+        const residents = await dbService.getAll('warga') as any[];
+        const wawan = residents.find(r => r.nama.toLowerCase().includes('wawan'));
+        if (!wawan) return;
+
+        console.log('Fixing Wawan data inconsistency...');
+
+        const currentTransactions = await dbService.getAll('transaksi') as any[];
+        const categories = await dbService.getAll('kategori') as any[];
+        
+        const bulananCat = categories.find(c => c.nama === 'Iuran Bulanan' && c.tipe === 'pemasukan');
+        const rtCat = categories.find(c => c.nama === 'Iuran RT' && c.tipe === 'pemasukan');
+        const thrCat = categories.find(c => c.nama.toLowerCase().includes('thr') && c.tipe === 'pemasukan');
+
+        if (!bulananCat || !rtCat) return;
+
+        // Delete existing 2026 transactions (Bulanan, RT, THR)
+        const toDelete = currentTransactions.filter(t => 
+          t.wargaId === wawan.id && 
+          !t.isHistorical && 
+          (t.kategoriId === bulananCat.id || t.kategoriId === rtCat.id || (thrCat && t.kategoriId === thrCat.id))
+        );
+
+        for (const t of toDelete) {
+          await dbService.delete('transaksi', t.id);
+        }
+
+        // Re-seed standard 2026 data
+        const months = [
+          { name: 'Januari', m: '01', bulanan: 180000 },
+          { name: 'Februari', m: '02', bulanan: 180000 },
+          { name: 'Maret', m: '03', bulanan: 200000 },
+          { name: 'April', m: '04', bulanan: 200000 },
+          { name: 'Mei', m: '05', bulanan: 200000 },
+        ];
+
+        for (const m of months) {
+          const mIdx = parseInt(m.m) - 1;
+          const date = new Date(2026, mIdx, 1).getTime();
+          
+          await dbService.add('transaksi', {
+            tanggal: date,
+            jumlah: m.bulanan,
+            tipe: 'pemasukan',
+            kategoriId: bulananCat.id,
+            wargaId: wawan.id,
+            bulanIuran: `2026-${m.m}`,
+            keterangan: `Iuran Bulanan - Wawan (${m.name} 2026)`,
+            createdAt: date
+          });
+
+          await dbService.add('transaksi', {
+            tanggal: date,
+            jumlah: 20000,
+            tipe: 'pemasukan',
+            kategoriId: rtCat.id,
+            wargaId: wawan.id,
+            bulanIuran: `2026-${m.m}`,
+            keterangan: `Iuran RT - Wawan (${m.name} 2026)`,
+            createdAt: date
+          });
+        }
+
+        if (thrCat) {
+          await dbService.add('transaksi', {
+            tanggal: new Date(2026, 2, 15).getTime(),
+            jumlah: 180000,
+            tipe: 'pemasukan',
+            kategoriId: thrCat.id,
+            wargaId: wawan.id,
+            bulanIuran: '2026-03',
+            keterangan: 'Iuran THR',
+            createdAt: new Date(2026, 2, 15).getTime()
+          });
+        }
+
+        // Ensure status accuracy
+        await dbService.update('warga', wawan.id, {
+          statusHuniUpdatedAt: 0
+        });
+
+        localStorage.setItem('fix_wawan_v1', 'true');
+        console.log('Wawan data fix complete.');
+      };
+
       seedData();
       seedRTData();
       seedBatchData();
@@ -781,6 +1026,9 @@ export default function App() {
       seedTunggakanMacet();
       fixRTTransactions();
       removeDuplicateRTTransactions();
+      fixTemiData();
+      fixWawanData();
+      globalDataAudit();
 
       // One-time cleanup for 'Pembayaran Tunggakan' category
       const cleanupKategori = async () => {

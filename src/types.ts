@@ -10,7 +10,10 @@ export interface Warga {
   phone?: string;
   status: WargaStatus;
   statusHuni: StatusHuni;
+  statusHuniUpdatedAt?: number;
+  noRumahUpdatedAt?: number;
   isIuranWajib: boolean;
+  isIuranRT: boolean;
   createdAt: number;
 }
 

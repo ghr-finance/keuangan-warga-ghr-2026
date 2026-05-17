@@ -22,8 +22,13 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
   
   const [formData, setFormData] = useState({
     wargaId: '',
+    kategoriId: '',
     tanggal: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   });
+
+  const categoriesPemasukan = useMemo(() => 
+    kategori.filter(k => k.tipe === 'pemasukan' && k.nama !== 'Pembayaran Tunggakan'),
+  [kategori]);
 
   useEffect(() => {
     const unsubT = dbService.subscribe('transaksi', setTransaksi);
@@ -88,17 +93,24 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
     try {
       // Create a transaction for each selected arrear
       for (const item of selectedArrearsItems) {
-        const cat = kategori.find(k => k.id === item.categoryId);
+        // Use chosen category if selected, otherwise use the one from ArrearItem
+        const finalCatId = formData.kategoriId || item.categoryId;
+        const cat = kategori.find(k => k.id === finalCatId);
         const catName = cat?.nama || 'Iuran';
+        
         const monthLabel = item.month ? format(new Date(item.month), 'MMMM yyyy') : '';
         const displayMonth = monthLabel ? `(${monthLabel})` : '';
+        
+        // Pattern: Pembayaran Tunggakan [Warga] - [Item Label] ([Bulan Tahun])
+        const detailLabel = item.type === 'bulanan' ? catName : item.label;
+        const keterangan = `Pembayaran Tunggakan ${w.nama} - ${detailLabel} ${displayMonth}`.replace(/\s+/g, ' ').trim();
         
         await dbService.add('transaksi', {
           tanggal: new Date(formData.tanggal).getTime(),
           jumlah: item.amount,
-          keterangan: `Pembayaran Tunggakan ${w.nama} - ${catName} ${displayMonth}`.trim(),
+          keterangan,
           tipe: 'pemasukan',
-          kategoriId: item.categoryId,
+          kategoriId: finalCatId,
           wargaId: w.id,
           bulanIuran: item.month || null,
           createdAt: Date.now()
@@ -159,6 +171,24 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
                     ))}
                   </select>
                   <User className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Category Dropdown */}
+              <div>
+                <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Kategori Transaksi (Opsional)</label>
+                <div className="relative">
+                  <select 
+                    className="w-full px-6 py-4 bg-white border border-[#E5E5DA] rounded-3xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
+                    value={formData.kategoriId}
+                    onChange={(e) => setFormData({...formData, kategoriId: e.target.value})}
+                  >
+                    <option value="">-- Gunakan Kategori Default --</option>
+                    {categoriesPemasukan.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.nama}</option>
+                    ))}
+                  </select>
+                  <Info className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
                 </div>
               </div>
 

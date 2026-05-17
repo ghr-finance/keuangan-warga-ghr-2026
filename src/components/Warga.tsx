@@ -31,6 +31,7 @@ export default function WargaList() {
     noRumah: '',
     phone: '',
     isIuranWajib: true,
+    isIuranRT: false,
     status: 'Aktif' as const,
     statusHuni: 'Menghuni' as const
   });
@@ -58,10 +59,20 @@ export default function WargaList() {
     setIsSubmitting(true);
     try {
       if (editingId) {
-        await dbService.update('warga', editingId, formData);
+        const oldWarga = warga.find(w => w.id === editingId);
+        const hasStatusChanged = oldWarga?.statusHuni !== formData.statusHuni;
+        const hasNoRumahChanged = oldWarga?.noRumah !== formData.noRumah;
+        
+        await dbService.update('warga', editingId, {
+          ...formData,
+          statusHuniUpdatedAt: hasStatusChanged ? Date.now() : (oldWarga?.statusHuniUpdatedAt ?? 0),
+          noRumahUpdatedAt: hasNoRumahChanged ? Date.now() : (oldWarga?.noRumahUpdatedAt ?? 0)
+        });
       } else {
         await dbService.add('warga', {
           ...formData,
+          statusHuniUpdatedAt: 0, // Set to 0 so it doesn't trigger past status flipping
+          noRumahUpdatedAt: 0,
           createdAt: Date.now()
         });
       }
@@ -76,7 +87,7 @@ export default function WargaList() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ nama: '', noRumah: '', phone: '', isIuranWajib: true, status: 'Aktif', statusHuni: 'Menghuni' });
+    setFormData({ nama: '', noRumah: '', phone: '', isIuranWajib: true, isIuranRT: false, status: 'Aktif', statusHuni: 'Menghuni' });
   };
 
   const handleEdit = (w: Warga) => {
@@ -86,6 +97,7 @@ export default function WargaList() {
       noRumah: w.noRumah,
       phone: w.phone || '',
       isIuranWajib: w.isIuranWajib,
+      isIuranRT: w.isIuranRT || false,
       status: w.status,
       statusHuni: w.statusHuni
     });
@@ -102,7 +114,8 @@ export default function WargaList() {
     const nextStatus = nextStatusHuni === 'Menghuni' ? 'Aktif' : 'Non-Aktif';
     await dbService.update('warga', w.id, { 
       statusHuni: nextStatusHuni,
-      status: nextStatus 
+      status: nextStatus,
+      statusHuniUpdatedAt: Date.now()
     });
   };
 
@@ -492,6 +505,26 @@ export default function WargaList() {
                       id="isIuran" 
                       checked={formData.isIuranWajib}
                       onChange={(e) => setFormData({...formData, isIuranWajib: e.target.checked})}
+                      className="w-6 h-6 rounded-lg border-[#E5E5DA] text-[#5A5A40] focus:ring-[#A3A375]"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#E5E5DA]">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-inner",
+                      formData.isIuranRT ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-400"
+                    )}>
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="isIuranRT" className="text-sm font-bold text-[#3A3A2A]">Sertakan Iuran RT</label>
+                      <p className="text-[10px] text-[#A3A375] font-bold">Benefit pengelolaan lingkungan ekstra</p>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      id="isIuranRT" 
+                      checked={formData.isIuranRT}
+                      onChange={(e) => setFormData({...formData, isIuranRT: e.target.checked})}
                       className="w-6 h-6 rounded-lg border-[#E5E5DA] text-[#5A5A40] focus:ring-[#A3A375]"
                     />
                   </div>

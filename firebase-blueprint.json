@@ -10,7 +10,8 @@
         "phone": { "type": "string", "description": "Nomor handphone" },
         "status": { "type": "string", "enum": ["Aktif", "Non-Aktif"], "description": "Status kependudukan" },
         "statusHuni": { "type": "string", "enum": ["Menghuni", "Tidak Menghuni"], "description": "Status hunian rumah" },
-        "isIuranWajib": { "type": "boolean", "description": "Apakah warga wajib membayar iuran bulanan" }
+        "isIuranWajib": { "type": "boolean", "description": "Apakah warga wajib membayar iuran bulanan" },
+        "isIuranRT": { "type": "boolean", "description": "Apakah warga ikut serta dalam iuran RT" }
       },
       "required": ["nama", "noRumah", "status", "statusHuni"]
     },

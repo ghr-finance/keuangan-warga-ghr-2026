@@ -1,7 +1,8 @@
 import React from 'react';
 import { Warga, Transaksi, Kategori, TunggakanMacet } from '../types';
-import { X, History, AlertCircle, CheckCircle2, Calendar, ArrowUpRight, Clock, User, Home, Phone, Printer, AlertTriangle, Calculator, Save } from 'lucide-react';
+import { X, History, AlertCircle, CheckCircle2, Calendar, ArrowUpRight, Clock, User, Home, Phone, Printer, AlertTriangle, Calculator, Save, Tag } from 'lucide-react';
 import { cn, formatCurrency, formatDate, getMonthlyFee } from '../lib/utils';
+import { calculateArrears } from '../lib/arrears';
 import { format, startOfMonth, subMonths, isAfter, parse, addMonths, isBefore, endOfMonth } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { dbService } from '../services/db';
@@ -61,13 +62,15 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
 
       // Add a transaction record for this payment
       const catIuran = kategori.find(k => k.nama.toLowerCase().includes('iuran bulanan') && k.tipe === 'pemasukan');
+      const catName = catIuran?.nama || 'Iuran Bulanan';
+      
       await dbService.add('transaksi', {
         tanggal: Date.now(),
         jumlah: amount,
         tipe: 'pemasukan',
         kategoriId: catIuran?.id || 'historical-cat',
         wargaId: warga.id,
-        keterangan: `Pembayaran Tunggakan Macet 2025 - ${warga.nama}`,
+        keterangan: `Pembayaran Tunggakan ${warga.nama} - ${catName} (Historical 2025)`,
         createdAt: Date.now()
       });
 
@@ -81,37 +84,14 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
   };
 
   // Filter transactions for this warga
-  const wargaTransaksi = transaksi
+  const wargaTransaksiBase = transaksi
     .filter(t => t.wargaId === warga.id)
     .sort((a, b) => b.tanggal - a.tanggal);
 
   // Calculate Arrears (Tunggakan)
-  // We'll look at the last 12 months or since warga creation
-  const arrears: string[] = [];
-  if (warga.isIuranWajib) {
-    const today = new Date();
-    const startDate = new Date(2026, 0, 1); // Strictly start from Jan 1, 2026
-    
-    // We check from startDate up to current month
-    let checkDate = startDate;
-    const currentMonth = startOfMonth(today);
+  const arrearsItems = calculateArrears(warga, transaksi, kategori);
 
-    while (isBefore(checkDate, addMonths(currentMonth, 1))) {
-      const monthStr = format(checkDate, 'yyyy-MM');
-      const hasPaid = transaksi.some(t => 
-        t.wargaId === warga.id && 
-        t.bulanIuran === monthStr && 
-        t.tipe === 'pemasukan'
-      );
-
-      if (!hasPaid) {
-        arrears.push(monthStr);
-      }
-      checkDate = addMonths(checkDate, 1);
-    }
-  }
-
-  const currentTunggakan = arrears.reduce((acc, month) => acc + getMonthlyFee(month, warga.statusHuni), 0);
+  const totalCurrentTunggakan = arrearsItems.reduce((acc, item) => acc + item.amount, 0);
 
   const exportPDF = () => {
     if (!warga) return;
@@ -146,9 +126,8 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     doc.text(`Status Huni : ${warga.statusHuni} (${warga.status})`, 25, 67);
 
     // Summary Stats
-    const totalKontribusi = wargaTransaksi.reduce((acc, t) => acc + (t.tipe === 'pemasukan' ? t.jumlah : 0), 0);
-    const currentTunggakan = arrears.reduce((acc, month) => acc + getMonthlyFee(month, warga.statusHuni), 0);
-    const totalTunggakan = currentTunggakan + (entryMacet?.sisa || 0);
+    const totalKontribusi = wargaTransaksiBase.reduce((acc, t) => acc + (t.tipe === 'pemasukan' ? t.jumlah : 0), 0);
+    const totalTunggakan = totalCurrentTunggakan + (entryMacet?.sisa || 0);
 
     doc.setFontSize(11);
     doc.text('RINGKASAN KEUANGAN', 20, 85);
@@ -160,14 +139,14 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     doc.text(formatCurrency(totalKontribusi), 80, 95);
     
     doc.setFont('helvetica', 'normal');
-    doc.text('Status Iuran 2026', 20, 102);
+    doc.text('Status Iuran & Kewajiban', 20, 102);
     doc.setFont('helvetica', 'bold');
-    if (arrears.length === 0) {
+    if (arrearsItems.length === 0) {
       doc.setTextColor(16, 185, 129); // text-emerald-500
       doc.text('LUNAS', 80, 102);
     } else {
       doc.setTextColor(245, 158, 11); // text-amber-500
-      doc.text(`${arrears.length} Bulan`, 80, 102);
+      doc.text(`${arrearsItems.length} Item Belum Bayar`, 80, 102);
     }
     doc.setTextColor(90, 90, 64);
 
@@ -183,7 +162,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     doc.setFont('helvetica', 'normal');
     doc.text('RIWAYAT TRANSAKSI', 20, 120);
     
-    const tableData = wargaTransaksi.map(t => [
+    const tableData = wargaTransaksiBase.map(t => [
       formatDate(t.tanggal),
       t.keterangan,
       `+ ${formatCurrency(t.jumlah)}`
@@ -202,21 +181,21 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     });
 
     // Arrears List if any
-    if (arrears.length > 0) {
+    if (arrearsItems.length > 0) {
       const finalY = (doc as any).lastAutoTable.finalY + 15;
       
       doc.setFontSize(11);
       doc.setTextColor(180, 83, 9); // amber-700
-      doc.text('DAFTAR TUNGGAKAN IURAN', 20, finalY);
+      doc.text('DAFTAR TUNGGAKAN KEWAJIBAN', 20, finalY);
 
-      const arrearsData = arrears.map(month => [
-        format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy'),
-        formatCurrency(getMonthlyFee(month, warga.statusHuni))
+      const arrearsData = arrearsItems.map(item => [
+        item.label,
+        formatCurrency(item.amount)
       ]);
 
       autoTable(doc, {
         startY: finalY + 5,
-        head: [['Bulan Tunggakan', 'Wajib Bayar']],
+        head: [['Deskripsi Kewajiban', 'Wajib Bayar']],
         body: arrearsData,
         theme: 'grid',
         headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
@@ -229,7 +208,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
       const lastArrearsY = (doc as any).lastAutoTable.finalY + 10;
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('ESTIMASI TOTAL TUNGGAKAN:', 20, lastArrearsY);
+      doc.text('TOTAL TAGIHAN (INC. MACET 2025):', 20, lastArrearsY);
       doc.text(formatCurrency(totalTunggakan), pageWidth - 20, lastArrearsY, { align: 'right' });
     }
 
@@ -295,15 +274,15 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                 <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Total Kontribusi</p>
                 <div className="flex items-center justify-between">
                   <h3 className="text-2xl font-bold text-emerald-600">
-                    {formatCurrency(wargaTransaksi.reduce((acc, t) => acc + (t.tipe === 'pemasukan' ? t.jumlah : 0), 0))}
+                    {formatCurrency(wargaTransaksiBase.reduce((acc, t) => acc + (t.tipe === 'pemasukan' ? t.jumlah : 0), 0))}
                   </h3>
                   <ArrowUpRight className="w-6 h-6 text-emerald-300" />
                 </div>
               </div>
               <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
-                <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Status Iuran</p>
+                <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Status Kewajiban</p>
                 <div className="flex items-center gap-3">
-                  {arrears.length === 0 ? (
+                  {arrearsItems.length === 0 ? (
                     <>
                       <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                       <span className="font-bold text-emerald-600">Lunas</span>
@@ -311,7 +290,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   ) : (
                     <>
                       <AlertCircle className="w-6 h-6 text-amber-500" />
-                      <span className="font-bold text-amber-600">{arrears.length} Bulan Tunggakan</span>
+                      <span className="font-bold text-amber-600">{arrearsItems.length} Item Tunggakan</span>
                     </>
                   )}
                 </div>
@@ -420,7 +399,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
               <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <History className="w-5 h-5 text-[#5A5A40]" />
-                  <h3 className="text-xl font-serif font-bold text-[#3A3A2A]">Riwayat Aktivitas</h3>
+                  <h3 className="text-xl font-serif font-bold text-[#3A3A2A]">Semua Riwayat Transaksi</h3>
                 </div>
                 <div className="bg-white rounded-[32px] border border-[#E5E5DA] overflow-hidden shadow-sm">
                   <table className="w-full text-left">
@@ -431,19 +410,24 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E5E5DA]">
-                      {wargaTransaksi.length === 0 ? (
+                      {wargaTransaksiBase.length === 0 ? (
                         <tr>
                           <td colSpan={2} className="px-6 py-10 text-center text-[#A3A375] italic">Belum ada catatan aktivitas</td>
                         </tr>
                       ) : (
-                        wargaTransaksi.map(t => (
+                        wargaTransaksiBase.map(t => (
                           <tr key={t.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
                               <p className="font-bold text-[#3A3A2A] text-sm">{t.keterangan}</p>
                               <p className="text-[10px] font-bold text-[#A3A375] uppercase tracking-tight">{formatDate(t.tanggal)}</p>
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <span className="font-bold text-emerald-600 text-sm">+{formatCurrency(t.jumlah)}</span>
+                              <span className={cn(
+                                "font-bold text-sm",
+                                t.tipe === 'pemasukan' ? "text-emerald-600" : "text-[#8B4513]"
+                              )}>
+                                {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
+                              </span>
                             </td>
                           </tr>
                         ))
@@ -456,42 +440,42 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
               {/* Arrears List */}
               <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
-                  <AlertCircle className={cn("w-5 h-5", arrears.length > 0 ? "text-amber-500" : "text-[#5A5A40]")} />
+                  <AlertCircle className={cn("w-5 h-5", arrearsItems.length > 0 ? "text-amber-500" : "text-[#5A5A40]")} />
                   <h3 className="text-xl font-serif font-bold text-[#3A3A2A]">Daftar Tunggakan</h3>
                 </div>
                 <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-8">
-                  {arrears.length === 0 ? (
+                  {arrearsItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
                       <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
                         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                       </div>
                       <div>
-                        <p className="font-bold text-[#3A3A2A]">Semua Iuran Terbayar!</p>
-                        <p className="text-sm text-[#A3A375] mt-1">Warga ini tidak memiliki tunggakan iuran wajib.</p>
+                        <p className="font-bold text-[#3A3A2A]">Semua Kewajiban Terbayar!</p>
+                        <p className="text-sm text-[#A3A375] mt-1">Warga ini tidak memiliki tunggakan kewajiban wajib.</p>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {arrears.map(month => (
-                        <div key={month} className="flex items-center justify-between p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                      {arrearsItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-4 bg-amber-50 rounded-2xl border border-amber-100">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                              <Calendar className="w-5 h-5 text-amber-500" />
+                              <Tag className="w-5 h-5 text-amber-500" />
                             </div>
                             <div>
-                              <p className="font-bold text-[#3A3A2A]">{format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}</p>
-                              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Iuran Belum Bayar</p>
+                              <p className="font-bold text-[#3A3A2A]">{item.label}</p>
+                              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Tunggakan</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-black text-[#3A3A2A]">{formatCurrency(getMonthlyFee(month, warga.statusHuni))}</p>
+                            <p className="font-black text-[#3A3A2A]">{formatCurrency(item.amount)}</p>
                           </div>
                         </div>
                       ))}
                       <div className="pt-6 border-t border-[#E5E5DA] mt-6 flex justify-between items-center">
-                        <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Estimasi Total Tunggakan (2025+2026)</p>
+                        <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Total Tagihan (Inc. Macet 2025)</p>
                         <p className="text-2xl font-serif font-bold text-amber-600">
-                          {formatCurrency(currentTunggakan + (entryMacet?.sisa || 0))}
+                          {formatCurrency(totalCurrentTunggakan + (entryMacet?.sisa || 0))}
                         </p>
                       </div>
                     </div>

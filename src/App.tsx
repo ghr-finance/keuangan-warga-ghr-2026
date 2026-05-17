@@ -376,7 +376,7 @@ export default function App() {
       };
 
       const seedFinalExpenditures = async () => {
-        const hasRun = localStorage.getItem('seed_expenditure_final_v1');
+        const hasRun = localStorage.getItem('seed_expenditure_final_v3');
         if (hasRun) return;
 
         // Fetch all current transactions to clear expenditures if needed
@@ -438,7 +438,7 @@ export default function App() {
           { timestamp: "2026-04-10 14:31:39", category: "Pantry", pic: "Udin", amount: 45000, date: "2026-04-05", note: "Pembelian kopi dan aqua galon" },
           { timestamp: "2026-04-15 14:31:25", category: "Penyaluran Santunan", pic: "Wawan", amount: 500000, date: "2026-03-08", note: "Penyaluran Santunan YAYASAN AL MUAWANAH" },
           { timestamp: "2026-04-20 19:15:41", category: "Gaji", pic: "Udin", amount: 900000, date: "2026-04-19", note: "gaji april tahap 2" },
-          { timestamp: "2026-04-20 19:15:58", category: "Gaji", pic: "Wahyu", amount: 80000, date: "2026-04-19", note: "gaji april tahap 2" },
+          { timestamp: "2026-04-20 19:15:58", category: "Gaji", pic: "Wahyu", amount: 800000, date: "2026-04-19", note: "gaji april tahap 2" },
           { timestamp: "2026-04-21 19:13:38", category: "Listrik & Air", pic: "Wawan", amount: 103000, date: "2026-04-20", note: "TOKEN LISTRIK" },
           { timestamp: "2026-04-23 11:30:18", category: "Pantry", pic: "Wawan", amount: 20000, date: "2026-04-14", note: "aqua galon" },
           { timestamp: "2026-04-24 22:48:12", category: "DKM", pic: "Wawan", amount: 1295680, date: "2026-04-24", note: "Pembayaran Laundry Karpet Mushola" },
@@ -486,7 +486,7 @@ export default function App() {
           count++;
         }
 
-        localStorage.setItem('seed_expenditure_final_v1', 'true');
+        localStorage.setItem('seed_expenditure_final_v3', 'true');
         console.log(`Final expenditure re-seeding completed. Created ${count} transactions.`);
       };
 
@@ -781,6 +781,22 @@ export default function App() {
       seedTunggakanMacet();
       fixRTTransactions();
       removeDuplicateRTTransactions();
+
+      // One-time cleanup for 'Pembayaran Tunggakan' category
+      const cleanupKategori = async () => {
+        const hasCleaned = localStorage.getItem('cleanup_tunggakan_cat_v1');
+        if (hasCleaned) return;
+        
+        const categories = await dbService.getAll('kategori') as any[];
+        const target = categories.find(k => k.nama === 'Pembayaran Tunggakan');
+        if (target) {
+          await dbService.delete('kategori', target.id);
+          console.log('Deleted legacy category: Pembayaran Tunggakan');
+        }
+        localStorage.setItem('cleanup_tunggakan_cat_v1', 'true');
+      };
+      
+      cleanupKategori();
     }
   }, [user]);
 

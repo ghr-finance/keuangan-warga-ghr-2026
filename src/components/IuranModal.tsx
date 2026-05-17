@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/db';
 import { Warga, Kategori, Transaksi } from '../types';
-import { X, CreditCard, ChevronDown, Calendar, User, Info } from 'lucide-react';
-import { cn, formatCurrency, getMonthlyFee } from '../lib/utils';
-import { format, startOfMonth, addMonths, subMonths } from 'date-fns';
+import { X, CreditCard, Calendar, User, Info, CheckCircle2 } from 'lucide-react';
+import { cn, formatCurrency } from '../lib/utils';
+import { calculateArrears, ArrearItem } from '../lib/arrears';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface IuranModalProps {
@@ -17,90 +18,92 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
   const [kategori, setKategori] = useState<Kategori[]>([]);
   const [loading, setLoading] = useState(false);
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [selectedArrearsKeys, setSelectedArrearsKeys] = useState<string[]>([]);
   
-  useEffect(() => {
-    const unsubT = dbService.subscribe('transaksi', setTransaksi);
-    return () => unsubT();
-  }, []);
-
   const [formData, setFormData] = useState({
     wargaId: '',
-    bulanIuran: format(new Date(), 'yyyy-MM'),
-    jumlah: 200000, 
-    keterangan: '',
     tanggal: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   });
 
   useEffect(() => {
-    const unsubK = dbService.subscribe('kategori', (data) => {
-      setKategori(data.filter(k => k.tipe === 'pemasukan' && k.nama.toLowerCase().includes('iuran')));
-    });
-    return () => unsubK();
+    const unsubT = dbService.subscribe('transaksi', setTransaksi);
+    const unsubK = dbService.subscribe('kategori', setKategori);
+    return () => {
+      unsubT();
+      unsubK();
+    };
   }, []);
+
+  // Filter warga that have arrears
+  const wargaWithArrears = useMemo(() => {
+    return wargaList.filter(w => {
+      const arrears = calculateArrears(w, transaksi, kategori);
+      return arrears.length > 0;
+    }).sort((a,b) => a.nama.localeCompare(b.nama));
+  }, [wargaList, transaksi, kategori]);
+
+  // Arrears for selected warga
+  const currentArrears = useMemo(() => {
+    const targetId = selectedWarga?.id || formData.wargaId;
+    if (!targetId) return [];
+    const w = wargaList.find(r => r.id === targetId);
+    if (!w) return [];
+    return calculateArrears(w, transaksi, kategori);
+  }, [formData.wargaId, selectedWarga, transaksi, kategori, wargaList]);
+
+  // Arrear Key Generator
+  const getArrearKey = (item: ArrearItem) => `${item.type}-${item.label}-${item.month || ''}`;
 
   useEffect(() => {
     if (selectedWarga) {
-      const amount = getMonthlyFee(formData.bulanIuran, selectedWarga.statusHuni);
-      setFormData(prev => ({
-        ...prev,
-        wargaId: selectedWarga.id,
-        jumlah: amount,
-        keterangan: `Iuran Bulanan - ${selectedWarga.nama} (${format(new Date(prev.bulanIuran), 'MMMM yyyy')})`
-      }));
+      setFormData(prev => ({ ...prev, wargaId: selectedWarga.id }));
     }
   }, [selectedWarga]);
 
+  // Reset selected arrears when warga changes
   useEffect(() => {
-    if (formData.wargaId) {
-      const w = wargaList.find(w => w.id === formData.wargaId);
-      if (w) {
-        const amount = getMonthlyFee(formData.bulanIuran, w.statusHuni);
-        setFormData(prev => ({
-          ...prev,
-          jumlah: amount,
-          keterangan: `Iuran Bulanan - ${w.nama} (${format(new Date(formData.bulanIuran), 'MMMM yyyy')})`
-        }));
-      }
-    }
-  }, [formData.bulanIuran, formData.wargaId, wargaList]);
+    setSelectedArrearsKeys([]);
+  }, [formData.wargaId]);
 
-  const handleSubmit = async (e: React.FormEvent, force: boolean = false) => {
+  const toggleArrear = (key: string) => {
+    setSelectedArrearsKeys(prev => 
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const selectedArrearsItems = currentArrears.filter(item => 
+    selectedArrearsKeys.includes(getArrearKey(item))
+  );
+
+  const totalAmount = selectedArrearsItems.reduce((acc, item) => acc + item.amount, 0);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!formData.wargaId || !formData.bulanIuran) return;
+    if (!formData.wargaId || selectedArrearsItems.length === 0) return;
     
-    // Duplication prevention: check by monthId OR by matching description
-    const currentWarga = wargaList.find(w => w.id === formData.wargaId);
-    const targetKeterangan = `Iuran Bulanan - ${currentWarga?.nama} (${format(new Date(formData.bulanIuran), 'MMMM yyyy')})`.trim().toLowerCase();
-    
-    const isDuplicate = transaksi.some(t => {
-      const tCleanKeterangan = (t.keterangan || '').trim().toLowerCase();
-      return (t.wargaId === formData.wargaId && t.bulanIuran === formData.bulanIuran && t.tipe === 'pemasukan') ||
-             (t.wargaId === formData.wargaId && tCleanKeterangan === targetKeterangan && t.tipe === 'pemasukan');
-    });
-
-    if (isDuplicate && !force) {
-      setDuplicateWarning(`Iuran untuk ${currentWarga?.nama} pada ${format(new Date(formData.bulanIuran), 'MMMM yyyy')} sudah ada di catatan.`);
-      return;
-    }
+    const w = wargaList.find(r => r.id === formData.wargaId);
+    if (!w) return;
 
     setLoading(true);
     try {
-      const iuranKategori = kategori[0]; // Take the first iuran category found
-      if (!iuranKategori) {
-        setLoading(false);
-        return;
+      // Create a transaction for each selected arrear
+      for (const item of selectedArrearsItems) {
+        const cat = kategori.find(k => k.id === item.categoryId);
+        const catName = cat?.nama || 'Iuran';
+        const monthLabel = item.month ? format(new Date(item.month), 'MMMM yyyy') : '';
+        const displayMonth = monthLabel ? `(${monthLabel})` : '';
+        
+        await dbService.add('transaksi', {
+          tanggal: new Date(formData.tanggal).getTime(),
+          jumlah: item.amount,
+          keterangan: `Pembayaran Tunggakan ${w.nama} - ${catName} ${displayMonth}`.trim(),
+          tipe: 'pemasukan',
+          kategoriId: item.categoryId,
+          wargaId: w.id,
+          bulanIuran: item.month || null,
+          createdAt: Date.now()
+        });
       }
-
-      await dbService.add('transaksi', {
-        ...formData,
-        keterangan: formData.keterangan.trim(),
-        tipe: 'pemasukan',
-        kategoriId: iuranKategori.id,
-        tanggal: new Date(formData.tanggal).getTime(),
-        jumlah: Number(formData.jumlah),
-        createdAt: Date.now()
-      });
       onClose();
     } catch (error) {
       console.error(error);
@@ -108,12 +111,6 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
       setLoading(false);
     }
   };
-
-  // Generate last 6 months + next 2 months for selection
-  const monthOptions = Array.from({ length: 9 }).map((_, i) => {
-    const d = addMonths(subMonths(new Date(), 6), i);
-    return format(d, 'yyyy-MM');
-  });
 
   if (!isOpen) return null;
 
@@ -124,16 +121,16 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          className="bg-[#F5F5F0] rounded-[40px] w-full max-w-lg shadow-2xl border border-[#E5E5DA] overflow-hidden"
+          className="bg-[#F5F5F0] rounded-[40px] w-full max-w-xl shadow-2xl border border-[#E5E5DA] overflow-hidden flex flex-col max-h-[90vh]"
         >
-          <div className="p-10 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50">
+          <div className="p-8 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50 shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-[#5A5A40] rounded-2xl flex items-center justify-center shadow-lg">
                 <CreditCard className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-serif font-bold text-[#3A3A2A]">Terima Iuran</h2>
-                <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Entry Cepat Kas Masuk</p>
+                <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Pilih Item Tunggakan Warga</p>
               </div>
             </div>
             <button 
@@ -144,42 +141,11 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-10 space-y-8">
+          <div className="flex-1 overflow-y-auto p-8 space-y-8">
             <div className="space-y-6">
-              {duplicateWarning && (
-                <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl animate-in fade-in slide-in-from-top-2">
-                  <div className="flex gap-4">
-                    <Info className="w-6 h-6 text-amber-600 shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="text-sm font-bold text-amber-900 mb-1">Data Ganda Terdeteksi</h4>
-                      <p className="text-xs text-amber-700 leading-relaxed mb-4">{duplicateWarning}</p>
-                      <div className="flex gap-3">
-                        <button 
-                          type="button"
-                          onClick={() => setDuplicateWarning(null)}
-                          className="px-4 py-2 bg-white border border-amber-200 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                        >
-                          Batal
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setDuplicateWarning(null);
-                            handleSubmit(null as any, true);
-                          }}
-                          className="px-4 py-2 bg-amber-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider"
-                        >
-                          Tetap Simpan
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Warga Selection */}
               <div>
-                <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Pilih Warga</label>
+                <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Pilih Warga (Hanya dengan Tunggakan)</label>
                 <div className="relative">
                   <select 
                     required
@@ -188,102 +154,122 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
                     onChange={(e) => setFormData({...formData, wargaId: e.target.value})}
                   >
                     <option value="">-- Pilih Warga --</option>
-                    {wargaList.sort((a,b) => a.nama.localeCompare(b.nama)).map(w => (
-                      <option key={w.id} value={w.id}>{w.nama} (No: {w.noRumah})</option>
+                    {wargaWithArrears.map(w => (
+                      <option key={w.id} value={w.id}>{w.nama} (Rumah: {w.noRumah})</option>
                     ))}
                   </select>
                   <User className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
                 </div>
-                {formData.wargaId && (
-                  <div className="mt-2 ml-4 flex items-center gap-2">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full",
-                      wargaList.find(w => w.id === formData.wargaId)?.statusHuni === 'Menghuni' ? "bg-emerald-500" : "bg-amber-500"
-                    )} />
-                    <span className="text-[10px] font-bold text-[#A3A375]">
-                      Status: {wargaList.find(w => w.id === formData.wargaId)?.statusHuni === 'Menghuni' ? 'Aktif (MENGHUNI)' : 'Nonaktif (TIDAK MENGHUNI)'}
-                    </span>
-                  </div>
-                )}
               </div>
 
-              {/* Month & Amount */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Untuk Bulan</label>
-                  <div className="relative">
-                    <select 
-                      required
-                      className="w-full px-6 py-4 bg-white border border-[#E5E5DA] rounded-3xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"
-                      value={formData.bulanIuran}
-                      onChange={(e) => setFormData({...formData, bulanIuran: e.target.value})}
-                    >
-                      {monthOptions.map(m => (
-                        <option key={m} value={m}>{format(new Date(m), 'MMMM yyyy')}</option>
-                      ))}
-                    </select>
-                    <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
+              {formData.wargaId && (
+                <div className="space-y-4">
+                  <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Daftar Tunggakan</label>
+                  <div className="space-y-3">
+                    {currentArrears.length === 0 ? (
+                      <div className="bg-emerald-50 p-6 rounded-3xl flex items-center gap-4 border border-emerald-100">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                        <p className="text-sm font-bold text-emerald-700">Warga ini tidak memiliki tunggakan!</p>
+                      </div>
+                    ) : (
+                      currentArrears.map((item) => {
+                        const key = getArrearKey(item);
+                        const isSelected = selectedArrearsKeys.includes(key);
+                        return (
+                          <div 
+                            key={key}
+                            onClick={() => toggleArrear(key)}
+                            className={cn(
+                              "p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group",
+                              isSelected 
+                                ? "bg-white border-[#5A5A40] shadow-md ring-2 ring-[#5A5A40]/5" 
+                                : "bg-white/50 border-[#E5E5DA] hover:border-[#A3A375]"
+                            )}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={cn(
+                                "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all",
+                                isSelected ? "bg-[#5A5A40] border-[#5A5A40]" : "border-[#E5E5DA] group-hover:border-[#A3A375]"
+                              )}>
+                                {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-[#3A3A2A]">{item.label}</p>
+                                <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">
+                                  {item.type === 'bulanan' ? 'Iuran Wajib' : item.type.toUpperCase()}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="font-black text-[#3A3A2A]">{formatCurrency(item.amount)}</p>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Jumlah Bayar</label>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 font-bold text-[#A3A375]">Rp</span>
-                    <input 
-                      required
-                      type="number" 
-                      className="w-full pl-14 pr-6 py-4 bg-white border border-[#E5E5DA] rounded-3xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
-                      value={formData.jumlah}
-                      onChange={(e) => setFormData({...formData, jumlah: Number(e.target.value)})}
-                    />
-                  </div>
-                </div>
-              </div>
+              )}
 
-              {/* Keterangan */}
-              <div>
-                <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Keterangan Label</label>
-                <input 
-                  required
-                  type="text"
-                  className="w-full px-6 py-4 bg-white border border-[#E5E5DA] rounded-3xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold placeholder:text-gray-300"
-                  value={formData.keterangan}
-                  onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
-                />
-              </div>
+              {/* Date */}
+              {selectedArrearsKeys.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6 pt-4 border-t border-[#E5E5DA]"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Tanggal Bayar</label>
+                      <div className="relative">
+                        <input 
+                          required
+                          type="datetime-local"
+                          className="w-full px-6 py-4 bg-white border border-[#E5E5DA] rounded-3xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
+                          value={formData.tanggal}
+                          onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                        />
+                        <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A375] pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="bg-[#5A5A40] p-6 rounded-3xl flex flex-col justify-center items-end text-white shadow-lg">
+                      <p className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">Total Bayar</p>
+                      <p className="text-2xl font-serif font-bold">{formatCurrency(totalAmount)}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               <div className="bg-[#5A5A40]/5 p-6 rounded-3xl flex gap-4 border border-[#5A5A40]/10">
                 <Info className="w-5 h-5 text-[#5A5A40] shrink-0 mt-0.5" />
                 <p className="text-xs text-[#5A5A40] font-medium leading-relaxed">
-                  Iuran akan dicatat sebagai <span className="font-bold">Pemasukan</span> dan akan memperbarui status iuran warga untuk bulan yang dipilih.
+                  Data pembayaran akan dicatat sebagai transaksi individual untuk setiap item yang dipilih.
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="pt-4 flex gap-4">
-              <button 
-                type="button" 
-                onClick={onClose}
-                className="flex-1 px-8 py-5 rounded-full border border-[#E5E5DA] font-bold text-[#A3A375] hover:bg-white active:scale-95 transition-all"
-              >
-                Tutup
-              </button>
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="flex-[2] px-8 py-5 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#5A5A40]/30 flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CreditCard className="w-5 h-5" />
-                    Konfirmasi Pembayaran
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+          <div className="p-8 border-t border-[#E5E5DA] bg-white/50 shrink-0 flex gap-4">
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="flex-1 px-8 py-5 rounded-full border border-[#E5E5DA] font-bold text-[#A3A375] hover:bg-white active:scale-95 transition-all"
+            >
+              Tutup
+            </button>
+            <button 
+              onClick={handleSubmit}
+              disabled={loading || selectedArrearsKeys.length === 0}
+              className="flex-[2] px-8 py-5 rounded-full bg-[#5A5A40] text-white font-bold hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-[#5A5A40]/30 flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="w-5 h-5" />
+                  Konfirmasi {selectedArrearsKeys.length} Pembayaran
+                </>
+              )}
+            </button>
+          </div>
         </motion.div>
       </div>
     </AnimatePresence>

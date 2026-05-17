@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Warga, Kategori, TransactionType, Petugas, Event } from '../types';
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, Filter, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, Filter, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2, Edit2 } from 'lucide-react';
 import { cn, formatDate, formatCurrency } from '../lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -13,6 +13,7 @@ export default function TransaksiList() {
   const [petugas, setPetugas] = useState<Petugas[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -98,33 +99,58 @@ export default function TransaksiList() {
       return;
     }
     
-    // Check for identical transactions in the last 24 hours
-    const sameDay = new Date(formData.tanggal).setHours(0,0,0,0);
-    const cleanKeterangan = (formData.keterangan || '').trim().toLowerCase();
+    // Check for identical transactions in the last 24 hours (only for new transactions)
+    if (!editingId) {
+      const sameDay = new Date(formData.tanggal).setHours(0,0,0,0);
+      const cleanKeterangan = (formData.keterangan || '').trim().toLowerCase();
 
-    const isDuplicate = transaksi.some(t => {
-      const transDay = new Date(t.tanggal).setHours(0,0,0,0);
-      const tCleanKeterangan = (t.keterangan || '').trim().toLowerCase();
-      
-      return t.jumlah === Number(formData.jumlah) && 
-             tCleanKeterangan === cleanKeterangan && 
-             t.tipe === formData.tipe &&
-             t.kategoriId === formData.kategoriId &&
-             t.wargaId === formData.wargaId &&
-             transDay === sameDay;
-    });
+      const isDuplicate = transaksi.some(t => {
+        const transDay = new Date(t.tanggal).setHours(0,0,0,0);
+        const tCleanKeterangan = (t.keterangan || '').trim().toLowerCase();
+        
+        return t.jumlah === Number(formData.jumlah) && 
+               tCleanKeterangan === cleanKeterangan && 
+               t.tipe === formData.tipe &&
+               t.kategoriId === formData.kategoriId &&
+               t.wargaId === formData.wargaId &&
+               transDay === sameDay;
+      });
 
-    if (isDuplicate && !force) {
-      setDuplicateWarning('Ditemukan transaksi yang identik pada hari yang sama.');
-      return;
+      if (isDuplicate && !force) {
+        setDuplicateWarning('Ditemukan transaksi yang identik pada hari yang sama.');
+        return;
+      }
     }
 
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const submissionDate = formData.tipe === 'pengeluaran' ? Date.now() : new Date(formData.tanggal).getTime();
+      const originalTx = editingId ? transaksi.find(t => t.id === editingId) : null;
+      let submissionDate: number;
+
+      if (editingId && originalTx) {
+        // Preserve original timestamp if it hasn't been explicitly changed in the UI
+        const originalFormatted = format(new Date(originalTx.tanggal), "yyyy-MM-dd'T'HH:mm");
+        if (formData.tipe === 'pengeluaran' || formData.tanggal === originalFormatted) {
+          submissionDate = originalTx.tanggal;
+        } else {
+          submissionDate = new Date(formData.tanggal).getTime();
+        }
+      } else {
+        // New transaction: pengeluaran is automatic, pemasukan uses form date
+        submissionDate = formData.tipe === 'pengeluaran' ? Date.now() : new Date(formData.tanggal).getTime();
+      }
       
-      if (selectedMonths.length > 1 && formData.tipe === 'pemasukan') {
+      if (editingId) {
+        await dbService.update('transaksi', editingId, {
+          ...formData,
+          keterangan: (formData.keterangan || '').trim(),
+          tanggal: submissionDate,
+          jumlah: Number(formData.jumlah),
+          bulanIuran: formData.tipe === 'pemasukan' ? (selectedMonths[0] || null) : null,
+          updatedAt: Date.now()
+        });
+      } else if (selectedMonths.length > 1 && formData.tipe === 'pemasukan') {
         // Create multiple transactions for each month
         const amountPerMonth = formData.jumlah / selectedMonths.length;
         const promises = selectedMonths.map(month => {
@@ -158,7 +184,47 @@ export default function TransaksiList() {
     }
   };
 
+  const handleEdit = (t: Transaksi) => {
+    setEditingId(t.id);
+    setFormData({
+      tanggal: format(new Date(t.tanggal), "yyyy-MM-dd'T'HH:mm"),
+      keterangan: t.keterangan,
+      jumlah: t.jumlah,
+      tipe: t.tipe,
+      kategoriId: t.kategoriId,
+      wargaId: t.wargaId || '',
+      petugasId: t.petugasId || '',
+      eventId: t.eventId || '',
+      picName: t.picName || '',
+    });
+    
+    if (t.bulanIuran) {
+      setSelectedMonths([t.bulanIuran]);
+    } else {
+      setSelectedMonths([]);
+    }
+
+    // Try to guess selectedBaseAmount
+    const possibleBases = [200000, 180000, 175000, 155000];
+    const cat = kategori.find(k => k.id === t.kategoriId);
+    if (cat?.nama === 'Iuran Bulanan') {
+      const foundBase = possibleBases.find(b => b === t.jumlah);
+      if (foundBase) {
+        setSelectedBaseAmount(foundBase);
+        setCustomAmount('');
+      } else {
+        setSelectedBaseAmount(null);
+        setCustomAmount(t.jumlah);
+      }
+    } else {
+      setCustomAmount(t.jumlah);
+    }
+    
+    setIsModalOpen(true);
+  };
+
   const resetForm = () => {
+    setEditingId(null);
     setDuplicateWarning(null);
     setErrorMsg(null);
     setSelectedMonths([format(new Date(), "yyyy-MM")]);
@@ -312,6 +378,12 @@ export default function TransaksiList() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between px-2">
+        <p className="text-[11px] font-black text-[#A3A375] uppercase tracking-[0.2em]">
+          Menampilkan <span className="text-[#5A5A40] underline underline-offset-4 decoration-2">{filteredTransaksi.length}</span> Transaksi
+        </p>
+      </div>
+
       <div className="bg-white border border-[#E5E5DA] rounded-[32px] overflow-hidden shadow-sm">
         <div className="divide-y divide-[#F5F5F0]">
           {filteredTransaksi.map((t) => (
@@ -354,20 +426,30 @@ export default function TransaksiList() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-between sm:justify-end gap-8">
-                <p className={cn(
-                  "text-xl font-black tabular-nums",
-                  t.tipe === 'pemasukan' ? "text-[#5A5A40]" : "text-[#8B4513]"
-                )}>
-                  {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
-                </p>
-                <button 
-                  onClick={() => dbService.delete('transaksi', t.id)}
-                  className="p-3 text-[#E5E5DA] hover:text-[#8B4513] hover:bg-[#fff5f5] transition-all rounded-full"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6">
+                  <p className={cn(
+                    "text-xl font-black tabular-nums",
+                    t.tipe === 'pemasukan' ? "text-[#5A5A40]" : "text-[#8B4513]"
+                  )}>
+                    {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
+                  </p>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <button 
+                      onClick={() => handleEdit(t)}
+                      className="p-2.5 text-[#A3A375] hover:text-[#5A5A40] hover:bg-[#A3A375]/10 transition-all rounded-full"
+                      title="Edit Transaksi"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => dbService.delete('transaksi', t.id)}
+                      className="p-2.5 text-[#E5E5DA] hover:text-[#8B4513] hover:bg-[#fff5f5] transition-all rounded-full"
+                      title="Hapus Transaksi"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
             </div>
           ))}
           {filteredTransaksi.length === 0 && (
@@ -390,7 +472,9 @@ export default function TransaksiList() {
               className="bg-[#F5F5F0] rounded-[32px] w-full max-w-2xl shadow-2xl overflow-hidden border border-[#E5E5DA] flex flex-col max-h-[90vh]"
             >
               <div className="p-6 sm:p-8 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50 shrink-0">
-                <h2 className="text-2xl font-serif font-bold text-[#3A3A2A]">Catat Transaksi</h2>
+                <h2 className="text-2xl font-serif font-bold text-[#3A3A2A]">
+                  {editingId ? 'Edit Transaksi' : 'Catat Transaksi'}
+                </h2>
                 <button 
                   onClick={() => setIsModalOpen(false)} 
                   className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-full transition-colors text-[#A3A375]"

@@ -20,6 +20,7 @@ interface WargaDetailModalProps {
 
 export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, kategori, tunggakanMacetList }: WargaDetailModalProps) {
   const [payAmount, setPayAmount] = React.useState<string>('');
+  const [payDate, setPayDate] = React.useState<string>(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null);
 
@@ -32,15 +33,16 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     if (!entryMacet || !payAmount) return;
     
     const amount = parseInt(payAmount);
+    const submissionDate = new Date(payDate).getTime();
 
-    // Duplicate check: check if a payment for "Tunggakan Macet 2025" with same amount was added today
-    const todayStart = new Date().setHours(0,0,0,0);
+    // Duplicate check: check if a payment for "Tunggakan Macet 2025" with same amount was added on same day
+    const sameDay = new Date(submissionDate).setHours(0,0,0,0);
     const isDuplicate = transaksi.some(t => {
       const transDay = new Date(t.tanggal).setHours(0,0,0,0);
       return t.wargaId === warga.id && 
              t.jumlah === amount && 
              t.keterangan.includes('Tunggakan Macet 2025') &&
-             transDay === todayStart;
+             transDay === sameDay;
     });
 
     if (isDuplicate && !force) {
@@ -65,7 +67,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
       const catName = catIuran?.nama || 'Iuran Bulanan';
       
       await dbService.add('transaksi', {
-        tanggal: Date.now(),
+        tanggal: submissionDate,
         jumlah: amount,
         tipe: 'pemasukan',
         kategoriId: catIuran?.id || 'historical-cat',
@@ -75,6 +77,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
       });
 
       setPayAmount('');
+      setPayDate(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
       setDuplicateWarning(null);
     } catch (error) {
       console.error(error);
@@ -381,13 +384,25 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                             />
                           </div>
                         </div>
+                        <div className="flex-1 w-full">
+                          <label className="block text-[10px] font-black text-[#8B4513] uppercase tracking-widest mb-2">Tanggal Bayar</label>
+                          <div className="relative">
+                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375]" />
+                            <input 
+                              type="datetime-local"
+                              className="w-full pl-11 pr-5 py-3 bg-white rounded-2xl border border-[#E5E5DA] focus:ring-2 focus:ring-[#8B4513] focus:outline-none font-bold text-sm"
+                              value={payDate}
+                              onChange={(e) => setPayDate(e.target.value)}
+                            />
+                          </div>
+                        </div>
                         <button 
                           disabled={!payAmount || isUpdating}
                           onClick={() => handleUpdateMacet(false)}
-                          className="px-8 py-3.5 bg-[#8B4513] text-white rounded-full font-bold text-sm shadow-xl shadow-[#8B4513]/20 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center gap-2"
+                          className="px-8 py-3.5 bg-[#8B4513] text-white rounded-full font-bold text-sm shadow-xl shadow-[#8B4513]/20 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center gap-2 h-[46px]"
                         >
                           <Save className="w-4 h-4" />
-                          Update Status
+                          Update
                         </button>
                       </div>
                     </div>

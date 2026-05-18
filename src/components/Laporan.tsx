@@ -52,28 +52,58 @@ export default function Laporan() {
     const doc = new jsPDF();
     const monthName = format(new Date(selectedMonth), 'MMMM yyyy', { locale: id });
     
+    // Cumulative calculations (Jan 2026 to end of selected month)
+    const runningYear = 2026;
+    const yearStart = new Date(runningYear, 0, 1);
+    const cumulativeEnd = endOfMonth(new Date(selectedMonth));
+    
+    const cumulativeTrans = transaksi.filter(t => {
+      const txDate = new Date(t.tanggal);
+      return txDate >= yearStart && txDate <= cumulativeEnd;
+    });
+    
+    const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+    const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
+    const cumSaldo = cumTotalMasuk - cumTotalKeluar;
+
     // Header
     doc.setFontSize(20);
     doc.setTextColor(58, 58, 42); // #3A3A2A
-    doc.text('LAPORAN KAS RT', 105, 20, { align: 'center' });
+    doc.text('LAPORAN KAS GHR', 105, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.setTextColor(163, 163, 117); // #A3A375
     doc.text(`Periode: ${monthName}`, 105, 28, { align: 'center' });
 
-    // Summary Section
-    const summaryData = [
-      ['Total Pemasukan', formatCurrency(totalMasuk)],
-      ['Total Pengeluaran', formatCurrency(totalKeluar)],
-      ['Surplus Bersih', formatCurrency(surplus)]
+    // Table 1: Selected Month Summary
+    const monthSummaryData = [
+      ['Pemasukan Bulan Ini', formatCurrency(totalMasuk)],
+      ['Pengeluaran Bulan Ini', formatCurrency(totalKeluar)],
+      ['Surplus/Defisit', formatCurrency(surplus)]
     ];
 
     autoTable(doc, {
       startY: 40,
-      head: [['Ringkasan Keuangan', 'Jumlah']],
-      body: summaryData,
+      head: [[`Ringkasan Keuangan ${monthName}`, 'Jumlah']],
+      body: monthSummaryData,
       theme: 'striped',
       headStyles: { fillColor: [90, 90, 64] }, // #5A5A40
+      styles: { fontSize: 10, cellPadding: 5 }
+    });
+
+    // Table 2: Cumulative Summary (Jan 2026 until now)
+    const cumulativeSummaryData = [
+      ['Total Pemasukan (Sejak Jan 2026)', formatCurrency(cumTotalMasuk)],
+      ['Total Pengeluaran (Sejak Jan 2026)', formatCurrency(cumTotalKeluar)],
+      ['Saldo Kas Akhir', formatCurrency(cumSaldo)]
+    ];
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      head: [['Informasi Total (Kumulatif)', 'Jumlah']],
+      body: cumulativeSummaryData,
+      theme: 'striped',
+      headStyles: { fillColor: [163, 163, 117] }, // #A3A375
       styles: { fontSize: 10, cellPadding: 5 }
     });
 
@@ -86,10 +116,10 @@ export default function Laporan() {
 
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 10,
-      head: [['Kategori', 'Tipe', 'Total']],
+      head: [['Kategori Bulan Ini', 'Tipe', 'Total']],
       body: categoryData,
       theme: 'grid',
-      headStyles: { fillColor: [163, 163, 117] }, // #A3A375
+      headStyles: { fillColor: [110, 110, 85] }, 
       styles: { fontSize: 9 }
     });
 
@@ -122,7 +152,7 @@ export default function Laporan() {
     });
 
     // Save PDF
-    doc.save(`Laporan_Kas_RT_${monthName.replace(' ', '_')}.pdf`);
+    doc.save(`Laporan_Kas_GHR_${monthName.replace(' ', '_')}.pdf`);
   };
 
   return (

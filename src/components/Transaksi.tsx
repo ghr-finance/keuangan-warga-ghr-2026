@@ -125,21 +125,7 @@ export default function TransaksiList() {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const originalTx = editingId ? transaksi.find(t => t.id === editingId) : null;
-      let submissionDate: number;
-
-      if (editingId && originalTx) {
-        // Preserve original timestamp if it hasn't been explicitly changed in the UI
-        const originalFormatted = format(new Date(originalTx.tanggal), "yyyy-MM-dd'T'HH:mm");
-        if (formData.tipe === 'pengeluaran' || formData.tanggal === originalFormatted) {
-          submissionDate = originalTx.tanggal;
-        } else {
-          submissionDate = new Date(formData.tanggal).getTime();
-        }
-      } else {
-        // New transaction: pengeluaran is automatic, pemasukan uses form date
-        submissionDate = formData.tipe === 'pengeluaran' ? Date.now() : new Date(formData.tanggal).getTime();
-      }
+      const submissionDate = new Date(formData.tanggal).getTime();
       
       if (editingId) {
         await dbService.update('transaksi', editingId, {
@@ -729,30 +715,18 @@ export default function TransaksiList() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                  {formData.tipe === 'pemasukan' ? (
-                    <div className={cn(!isKegiatanCategory && formData.petugasId !== 'other' ? "col-span-2" : "col-span-1")}>
-                      <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Tanggal & Waktu</label>
-                      <input 
-                        required
-                        type="datetime-local" 
-                        className="w-full px-4 py-2.5 text-xs bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
-                        value={formData.tanggal}
-                        onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
-                      />
-                    </div>
-                  ) : (
-                    <div className="col-span-2 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 mb-2">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-emerald-600" />
-                        <div>
-                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Waktu Transaksi</p>
-                          <p className="text-sm font-bold text-emerald-800">Otomatis (Saat Klik Simpan)</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div className={cn(formData.tipe === 'pemasukan' && !isKegiatanCategory && formData.petugasId !== 'other' ? "col-span-2" : "col-span-1")}>
+                    <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Tanggal & Waktu</label>
+                    <input 
+                      required
+                      type="datetime-local" 
+                      className="w-full px-4 py-2.5 text-xs bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold"
+                      value={formData.tanggal}
+                      onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                    />
+                  </div>
                   {(formData.tipe === 'pengeluaran' || isKegiatanCategory || formData.petugasId === 'other') && (
-                    <div className={cn(formData.tipe === 'pengeluaran' ? "col-span-2" : "col-span-1")}>
+                    <div className={cn(formData.tipe === 'pengeluaran' ? "col-span-1" : "col-span-1")}>
                       <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Petugas / PIC</label>
                       <select 
                         className="w-full px-4 py-2.5 text-xs bg-white border border-[#E5E5DA] rounded-xl focus:ring-2 focus:ring-[#A3A375] focus:outline-none font-bold appearance-none cursor-pointer"

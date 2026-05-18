@@ -23,13 +23,15 @@ import { auth } from './lib/firebase';
 import { dbService } from './services/db';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { cn, formatCurrency } from './lib/utils';
+import { format } from 'date-fns';
 import Dashboard from './components/Dashboard';
 import WargaList from './components/Warga';
 import TransaksiList from './components/Transaksi';
 import Laporan from './components/Laporan';
 import EventList from './components/Events';
-import KategoriList from './components/Kategori';
+import Pengaturan from './components/Pengaturan';
 import PetugasList from './components/Petugas';
+import { backupService } from './services/backup';
 import { motion, AnimatePresence } from 'motion/react';
 
 type NavItem = 'dashboard' | 'warga' | 'petugas' | 'transaksi' | 'event' | 'laporan' | 'pengaturan';
@@ -800,10 +802,10 @@ export default function App() {
       };
 
       const globalDataAudit = async () => {
-        const hasRun = localStorage.getItem('global_data_audit_v4');
+        const hasRun = localStorage.getItem('global_data_audit_v6');
         if (hasRun) return;
 
-        console.log('Running comprehensive global data audit v4...');
+        console.log('Running master data audit and stabilization v6...');
         const transactions = await dbService.getAll('transaksi') as any[];
         const categories = await dbService.getAll('kategori') as any[];
         const residents = await dbService.getAll('warga') as any[];
@@ -818,7 +820,7 @@ export default function App() {
         let fixedCount = 0;
         let deletedCount = 0;
 
-        // 1. Reset Status Updated At for clean slate
+        // 1. Reset Resident Status metadata for fresh calculation
         for (const r of residents) {
           if (r.statusHuniUpdatedAt !== 0) {
             await dbService.update('warga', r.id, { statusHuniUpdatedAt: 0 });
@@ -826,44 +828,48 @@ export default function App() {
           }
         }
 
-        // 2. Fix transaction metadata
+        // 2. Stabilization and Label Normalization
+        const standardizeLabel = (label: string) => {
+          const l = label.toLowerCase();
+          if (l.includes('bukber') || l.includes('berbuka puasa')) return 'Iuran Bukber';
+          if (l.includes('thr')) return 'Iuran THR';
+          if (l.includes('iuran bulanan')) return 'Iuran Bulanan';
+          if (l.includes('iuran rt')) return 'Iuran RT';
+          return label;
+        };
+
         for (const t of transactions) {
-          const desc = (t.keterangan || '').toLowerCase();
           let needsUpdate = false;
           let updateData: any = {};
 
-          // A. Fix Category
+          const desc = (t.keterangan || '').toLowerCase();
+          
+          // A. Category Corrections
           let correctCatId = t.kategoriId;
-          if (desc.includes('iuran bulanan')) {
-            correctCatId = bulananCat.id;
-          } else if (desc.includes('iuran rt')) {
-            correctCatId = rtCat.id;
-          } else if (desc.includes('thr') && thrCat) {
-            correctCatId = thrCat.id;
-          } else if (desc.includes('bukber') && kegiatanCat) {
-            correctCatId = kegiatanCat.id;
-            // Also standardize Bukber labels
-            if (!t.keterangan.includes('Iuran Bukber')) {
-              updateData.keterangan = 'Iuran Bukber';
-              needsUpdate = true;
-            }
-          } else if (t.kategoriId === 'twzek4iqF0nEr6o3nYuo') {
-            correctCatId = bulananCat.id;
-          }
+          const targetLabel = standardizeLabel(t.keterangan || '');
+          
+          if (targetLabel === 'Iuran Bulanan') correctCatId = bulananCat.id;
+          else if (targetLabel === 'Iuran RT') correctCatId = rtCat.id;
+          else if (targetLabel === 'Iuran THR' && thrCat) correctCatId = thrCat.id;
+          else if (targetLabel === 'Iuran Bukber' && kegiatanCat) correctCatId = kegiatanCat.id;
 
           if (correctCatId !== t.kategoriId) {
             updateData.kategoriId = correctCatId;
             needsUpdate = true;
           }
 
-          // B. Fix Missing BulanIuran
-          if (!t.bulanIuran && (correctCatId === bulananCat.id || correctCatId === rtCat.id)) {
+          if (targetLabel !== t.keterangan && (correctCatId === bulananCat.id || correctCatId === rtCat.id || (thrCat && correctCatId === thrCat.id) || (kegiatanCat && correctCatId === kegiatanCat.id))) {
+            updateData.keterangan = targetLabel;
+            needsUpdate = true;
+          }
+
+          // B. Fix Missing BulanIuran for Recurring
+          if (!t.bulanIuran && (correctCatId === bulananCat.id || correctCatId === rtCat.id || (thrCat && correctCatId === thrCat.id) || (kegiatanCat && correctCatId === kegiatanCat.id))) {
             const monthMap: Record<string, string> = {
               'januari': '01', 'februari': '02', 'maret': '03', 'april': '04', 'mei': '05', 
               'juni': '06', 'juli': '07', 'agustus': '08', 'september': '09', 'oktober': '10', 
               'november': '11', 'desember': '12'
             };
-            
             for (const [mName, mVal] of Object.entries(monthMap)) {
               if (desc.includes(mName)) {
                 updateData.bulanIuran = `2026-${mVal}`;
@@ -871,17 +877,26 @@ export default function App() {
                 break;
               }
             }
-          }
-
-          // C. Normalize BulanIuran (2026-1 -> 2026-01)
-          if (t.bulanIuran || updateData.bulanIuran) {
-            const b = updateData.bulanIuran || t.bulanIuran;
-            if (b.includes('-')) {
-              const [y, m] = b.split('-');
-              if (m.length === 1) {
-                updateData.bulanIuran = `${y}-${m.padStart(2, '0')}`;
+            
+            // Hardcoded defaults for specific types if still missing
+            if (!updateData.bulanIuran && !t.bulanIuran) {
+              if (targetLabel === 'Iuran THR') {
+                updateData.bulanIuran = '2026-03';
+                needsUpdate = true;
+              } else if (targetLabel === 'Iuran Bukber') {
+                updateData.bulanIuran = '2026-02';
                 needsUpdate = true;
               }
+            }
+          }
+
+          // C. Normalize BulanIuran format
+          const b = updateData.bulanIuran || t.bulanIuran;
+          if (b && b.includes('-')) {
+            const [y, m] = b.split('-');
+            if (m.length === 1) {
+              updateData.bulanIuran = `${y}-${m.padStart(2, '0')}`;
+              needsUpdate = true;
             }
           }
 
@@ -891,38 +906,34 @@ export default function App() {
           }
         }
 
-        // 3. Robust Duplicate Removal (Pemasukan only)
-        const cleanupDuplicates = async () => {
-          const freshTrans = await dbService.getAll('transaksi') as any[];
-          const relevant = freshTrans.filter(t => t.tipe === 'pemasukan' && t.wargaId && (t.bulanIuran || t.kategoriId === kegiatanCat?.id));
+        // 2. Master Deduction (Aggressive Removal of duplicates)
+        const freshTrans = await dbService.getAll('transaksi') as any[];
+        const incomeTrans = freshTrans.filter(t => t.tipe === 'pemasukan' && t.wargaId && !t.isHistorical);
+        
+        const groups: Record<string, any[]> = {};
+        for (const t of incomeTrans) {
+          const key = t.bulanIuran 
+            ? `${t.wargaId}_${t.kategoriId}_${t.bulanIuran}`
+            : `${t.wargaId}_${t.kategoriId}_${t.keterangan.trim().toLowerCase()}`;
           
-          const groups: Record<string, any[]> = {};
-          for (const t of relevant) {
-            const key = t.bulanIuran 
-              ? `${t.wargaId}_${t.kategoriId}_${t.bulanIuran}`
-              : `${t.wargaId}_${t.kategoriId}_${t.keterangan.toLowerCase().trim()}`;
-            
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(t);
-          }
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(t);
+        }
 
-          for (const key in groups) {
-            const group = groups[key];
-            if (group.length > 1) {
-              group.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-              const duplicates = group.slice(1);
-              for (const dup of duplicates) {
-                await dbService.delete('transaksi', dup.id);
-                deletedCount++;
-              }
+        for (const key in groups) {
+          const group = groups[key];
+          if (group.length > 1) {
+            group.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            const duplicates = group.slice(1);
+            for (const dup of duplicates) {
+              await dbService.delete('transaksi', dup.id);
+              deletedCount++;
             }
           }
-        };
+        }
 
-        await cleanupDuplicates();
-
-        console.log(`Audit v4 complete: Fixed ${fixedCount}, Deleted ${deletedCount}.`);
-        localStorage.setItem('global_data_audit_v4', 'true');
+        console.log(`Audit v6 complete: Fixed ${fixedCount}, Deleted ${deletedCount}.`);
+        localStorage.setItem('global_data_audit_v6', 'true');
       };
 
       const fixWawanData = async () => {
@@ -1013,22 +1024,112 @@ export default function App() {
         console.log('Wawan data fix complete.');
       };
 
-      seedData();
-      seedRTData();
-      seedBatchData();
-      seedUnoccupiedData();
-      seedHermanData();
-      seedRTBatchData();
-      seedTHRData();
-      seedFinalExpenditures();
-      seedBukberData();
-      seedInitialBalances();
-      seedTunggakanMacet();
-      fixRTTransactions();
-      removeDuplicateRTTransactions();
-      fixTemiData();
-      fixWawanData();
+      // All seed functions are disabled for production to prevent data multiplication
+      // seedData();
+      // seedRTData();
+      // seedBatchData();
+      // seedUnoccupiedData();
+      // seedHermanData();
+      // seedRTBatchData();
+      // seedTHRData();
+      // seedFinalExpenditures();
+      // seedBukberData();
+      // seedInitialBalances();
+      // seedTunggakanMacet();
+      // fixWawanData();
+      
+      const v8Audit = async () => {
+        const hasRun = localStorage.getItem('global_data_audit_v8');
+        if (hasRun) return;
+
+        console.log('Running master super-aggressive data cleanup v8...');
+        const transactions = await dbService.getAll('transaksi') as any[];
+        const categories = await dbService.getAll('kategori') as any[];
+        
+        const bulananCat = categories.find(c => c.nama === 'Iuran Bulanan' && c.tipe === 'pemasukan');
+        const rtCat = categories.find(c => c.nama === 'Iuran RT' && c.tipe === 'pemasukan');
+        const thrCat = categories.find(c => c.nama.toLowerCase().includes('thr') && c.tipe === 'pemasukan');
+        const kegiatanCat = categories.find(c => c.nama.toLowerCase().includes('kegiatan') && c.tipe === 'pemasukan');
+
+        const groups: Record<string, any[]> = {};
+        let deletedCount = 0;
+
+        for (const t of transactions) {
+          if (t.tipe !== 'pemasukan' || t.isHistorical || !t.wargaId) continue;
+          
+          // 1. Determine Logical Category
+          let logicalCatId = t.kategoriId;
+          const desc = (t.keterangan || '').toLowerCase();
+          
+          if (desc.includes('iuran bulanan') || (bulananCat && t.kategoriId === bulananCat.id)) logicalCatId = bulananCat?.id || 'bulanan';
+          else if (desc.includes('iuran rt') || (rtCat && t.kategoriId === rtCat.id)) logicalCatId = rtCat?.id || 'rt';
+          else if (desc.includes('thr') || (thrCat && t.kategoriId === thrCat.id)) logicalCatId = thrCat?.id || 'thr';
+          else if (desc.includes('bukber') || (kegiatanCat && t.kategoriId === kegiatanCat.id)) logicalCatId = kegiatanCat?.id || 'bukber';
+
+          // 2. Normalize Month
+          const month = t.bulanIuran || 'no-month';
+          
+          // 3. Create key
+          // We include amount to be safe, but duplicates often have same amount
+          const key = `${t.wargaId}_${logicalCatId}_${month}`;
+          
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(t);
+        }
+
+        for (const key in groups) {
+          const group = groups[key];
+          if (group.length > 1) {
+            // Sort by amount descending (keep the larger one if mismatch), then by date
+            group.sort((a, b) => {
+              if (b.jumlah !== a.jumlah) return b.jumlah - a.jumlah;
+              return (b.createdAt || 0) - (a.createdAt || 0);
+            });
+            
+            const duplicates = group.slice(1);
+            for (const dup of duplicates) {
+              await dbService.delete('transaksi', dup.id);
+              deletedCount++;
+            }
+          }
+        }
+
+        console.log(`Audit v8 complete: Deleted ${deletedCount} duplicates.`);
+        localStorage.setItem('global_data_audit_v8', 'true');
+      };
+
+      v8Audit();
       globalDataAudit();
+
+      const runAutoBackupCheck = async () => {
+        const today = new Date();
+        if (today.getDate() !== 1) return; // Only run on 1st
+
+        const monthKey = format(today, 'yyyy-MM');
+        const storageKey = `auto_backup_${monthKey}`;
+        
+        if (localStorage.getItem(storageKey)) return;
+
+        console.log(`Monthly auto-backup check: today is the 1st of ${format(today, 'MMMM')}. Checking existing backups...`);
+        
+        try {
+          const backups = await backupService.listBackups() as any[];
+          const hasBackupThisMonth = backups.some(b => 
+            b.label && b.label.includes('Auto-Backup') && 
+            b.timestamp && format(new Date(b.timestamp), 'yyyy-MM') === monthKey
+          );
+
+          if (!hasBackupThisMonth) {
+            console.log('No auto-backup found for this month. Creating one...');
+            await backupService.createBackup(`Auto-Backup ${format(today, 'MMMM yyyy')}`);
+            localStorage.setItem(storageKey, 'true');
+          }
+        } catch (err) {
+          console.error('Auto-backup job failed:', err);
+        }
+      };
+
+      runAutoBackupCheck();
 
       // One-time cleanup for 'Pembayaran Tunggakan' category
       const cleanupKategori = async () => {
@@ -1064,7 +1165,7 @@ export default function App() {
         </div>
         <h1 className="text-4xl font-serif font-bold text-[#3A3A2A] mb-3">Keuangan Warga</h1>
         <p className="text-[#4A4A3A] mb-8 max-w-xs opacity-80 leading-relaxed font-medium">
-          Kelola arus kas, iuran warga, dan anggaran kegiatan RT/RW dengan sentuhan kenyamanan dan transparansi.
+          Kelola arus kas, iuran warga, dan anggaran kegiatan GHR dengan sentuhan kenyamanan dan transparansi.
         </p>
         <button
           onClick={login}
@@ -1114,7 +1215,7 @@ export default function App() {
               </div>
               <div className="leading-tight">
                 <span className="font-bold text-xl tracking-tight">Keuangan</span>
-                <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Warga RT/RW</p>
+                <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Warga GHR</p>
               </div>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition-colors">
@@ -1191,7 +1292,7 @@ export default function App() {
               {activeTab === 'transaksi' && <TransaksiList />}
               {activeTab === 'event' && <EventList />}
               {activeTab === 'laporan' && <Laporan />}
-              {activeTab === 'pengaturan' && <KategoriList />}
+              {activeTab === 'pengaturan' && <Pengaturan />}
             </motion.div>
           </AnimatePresence>
         </div>

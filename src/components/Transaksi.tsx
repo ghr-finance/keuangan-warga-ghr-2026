@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Warga, Kategori, TransactionType, Petugas, Event } from '../types';
 import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, Filter, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2, Edit2 } from 'lucide-react';
-import { cn, formatDate, formatCurrency } from '../lib/utils';
+import { cn, formatDate, formatCurrency, resolveWargaForDate } from '../lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -53,7 +53,7 @@ export default function TransaksiList() {
   const isKegiatanCategory = selectedCategory?.nama.toLowerCase().includes('kegiatan');
   const isIuranBulanan = selectedCategory?.nama === 'Iuran Bulanan';
 
-  const selectedWarga = warga.find(w => w.id === formData.wargaId);
+  const selectedWarga = resolveWargaForDate(warga.find(w => w.id === formData.wargaId), formData.tanggal);
   const isWargaMenghuni = selectedWarga?.statusHuni === 'Menghuni';
   const displayBaseAmountForReference = isWargaMenghuni ? 200000 : 175000;
 
@@ -393,7 +393,7 @@ export default function TransaksiList() {
                   {t.wargaId && (
                     <span className="flex items-center gap-2 text-[#5A5A40]">
                       <User className="w-4 h-4" /> 
-                      {warga.find(w => w.id === t.wargaId)?.nama}
+                      {resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama}
                     </span>
                   )}
                   <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {formatDate(t.tanggal)}</span>

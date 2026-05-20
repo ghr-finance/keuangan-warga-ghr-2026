@@ -1,7 +1,7 @@
 import React from 'react';
 import { Warga, Transaksi, Kategori, TunggakanMacet } from '../types';
 import { X, History, AlertCircle, CheckCircle2, Calendar, ArrowUpRight, Clock, User, Home, Phone, Printer, AlertTriangle, Calculator, Save, Tag } from 'lucide-react';
-import { cn, formatCurrency, formatDate, getMonthlyFee } from '../lib/utils';
+import { cn, formatCurrency, formatDate, getMonthlyFee, resolveWargaForDate } from '../lib/utils';
 import { calculateArrears } from '../lib/arrears';
 import { format, startOfMonth, subMonths, isAfter, parse, addMonths, isBefore, endOfMonth } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -167,7 +167,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     
     const tableData = wargaTransaksiBase.map(t => [
       formatDate(t.tanggal),
-      t.keterangan,
+      t.keterangan + ((warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK') ? ` (Atas Nama: ${resolveWargaForDate(warga, t.tanggal)?.nama})` : ''),
       `+ ${formatCurrency(t.jumlah)}`
     ]);
 
@@ -410,6 +410,34 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                 </div>
               )}
 
+              {/* Rentang Histori Perubahan Kepenghunian (No Rumah 14) */}
+              {(warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK') && (
+                <div className="lg:col-span-2 bg-[#A3A375]/10 border border-[#A3A375]/30 rounded-[32px] p-6 sm:p-8 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <History className="w-5 h-5 text-[#5A5A40]" />
+                    <h4 className="text-lg font-bold text-[#3A3A2A]">Rentang Histori Perubahan Kepenghunian</h4>
+                  </div>
+                  <div className="relative border-l-2 border-[#A3A375]/30 ml-3 pl-6 space-y-6">
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#F5F5F0] shadow-sm animate-pulse" />
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Januari 2026 - 10 Mei 2026</p>
+                      <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Disewakan kepada warga: <span className="text-[#5A5A40] underline font-black">Fuad</span></h5>
+                      <p className="text-xs text-[#5A5A40] mt-1 bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
+                        Status: <span className="font-bold text-emerald-600">Menghuni (Penyewa Aktif)</span> • Semua iuran yang masuk pada rentang ini otomatis tercatat atas nama Fuad.
+                      </p>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-amber-500 border-2 border-[#F5F5F0] shadow-sm" />
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Mulai 11 Mei 2026 (Masa Sewa Selesai)</p>
+                      <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Kembali ke Pemilik Asli: <span className="text-[#5A5A40] underline font-black">Faradila</span></h5>
+                      <p className="text-xs text-[#5A5A40] mt-1 bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
+                        Status: <span className="font-bold text-amber-600">Tidak Menghuni (Pemilik Non-Aktif)</span> • Sisa iuran dan tanggung jawab dilanjutkan oleh Faradila.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* History Table */}
               <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
@@ -433,7 +461,14 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                         wargaTransaksiBase.map(t => (
                           <tr key={t.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
-                              <p className="font-bold text-[#3A3A2A] text-sm">{t.keterangan}</p>
+                              <p className="font-bold text-[#3A3A2A] text-sm flex flex-wrap items-center gap-2">
+                                {t.keterangan}
+                                {(warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK') && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#A3A375]/15 text-[#5A5A40]">
+                                    Atas Nama: {resolveWargaForDate(warga, t.tanggal)?.nama}
+                                  </span>
+                                )}
+                              </p>
                               <p className="text-[10px] font-bold text-[#A3A375] uppercase tracking-tight">{formatDate(t.tanggal)}</p>
                             </td>
                             <td className="px-6 py-4 text-right">

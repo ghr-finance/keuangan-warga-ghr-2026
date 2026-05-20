@@ -52,7 +52,15 @@ export function calculateArrears(
     
     // Determine effective status for this month - use current status
     // Flipping logic based on statusHuniUpdatedAt is often incorrect since updates happen for non-status reasons
-    const effectiveStatus = warga.statusHuni;
+    let effectiveStatus = warga.statusHuni;
+    if (warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK' || warga.nama === 'Faradila' || warga.nama === 'Fuad') {
+      const boundaryDate = new Date(2026, 4, 11); // 11 Mei 2026
+      if (isBefore(checkDate, boundaryDate)) {
+        effectiveStatus = 'Menghuni';
+      } else {
+        effectiveStatus = 'Tidak Menghuni';
+      }
+    }
 
     monthlyArrearsConfigs.forEach(config => {
       if (!config.cat || !config.shouldApply(warga)) return;
@@ -89,7 +97,10 @@ export function calculateArrears(
     );
 
     if (!hasPaidTHR) {
-      const effectiveStatus = warga.statusHuni;
+      let effectiveStatus = warga.statusHuni;
+      if (warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK' || warga.nama === 'Faradila' || warga.nama === 'Fuad') {
+        effectiveStatus = 'Menghuni';
+      }
       const thrAmount = effectiveStatus === 'Menghuni' ? 180000 : 155000;
       arrearsItems.push({
         type: 'thr',

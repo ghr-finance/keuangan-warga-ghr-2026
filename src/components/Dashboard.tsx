@@ -205,10 +205,10 @@ export default function Dashboard() {
         wargaList={warga}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-        <div className="md:col-span-1 lg:col-span-2 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] h-fit">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 sm:gap-8">
+        <div className="xl:col-span-3 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] h-fit min-w-0 overflow-hidden">
           <h3 className="text-lg sm:text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas</h3>
-          <div className="h-[280px] sm:h-[320px] w-full">
+          <div className="h-[280px] sm:h-[320px] w-full min-w-0 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -240,27 +240,37 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-4 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] flex flex-col h-full min-h-[400px]">
+        <div className="xl:col-span-2 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] flex flex-col h-full min-h-[400px] min-w-0">
           <h3 className="text-lg sm:text-xl font-bold text-[#3A3A2A] mb-6 flex items-center justify-between shrink-0">
             Aktivitas
             <button className="text-[10px] sm:text-xs font-bold text-[#5A5A40] underline underline-offset-4 decoration-[#A3A375]/40 active:scale-95 transition-transform">Lihat Semua</button>
           </h3>
-          <div className="space-y-5 overflow-y-auto pr-2 custom-scrollbar flex-1">
+          <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
             {transaksi.slice(0, 8).sort((a,b) => b.tanggal - a.tanggal).map((t) => (
-              <div key={t.id} className="flex items-center gap-3 sm:gap-4 group">
-                <div className={cn(
-                  "w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors shadow-sm",
-                  t.tipe === 'pemasukan' ? "bg-emerald-50" : "bg-red-50"
-                )}>
-                  {t.tipe === 'pemasukan' ? <ArrowDownLeft className="text-emerald-600 w-4 h-4 sm:w-5 sm:h-5" /> : <ArrowUpRight className="text-red-600 w-4 h-4 sm:w-5 sm:h-5" />}
+              <div key={t.id} className="group p-4 rounded-[24px] bg-[#F5F5F0]/50 hover:bg-white hover:shadow-xl hover:shadow-[#5A5A40]/5 border border-[#E5E5DA]/30 hover:border-[#E5E5DA] transition-all duration-300 flex items-center justify-between gap-3 min-w-0">
+                {/* Bagian Kiri: Icon + Keterangan & Tanggal */}
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                    t.tipe === 'pemasukan' ? "bg-emerald-50" : "bg-red-50"
+                  )}>
+                    {t.tipe === 'pemasukan' ? <ArrowDownLeft className="text-emerald-600 w-5 h-5" /> : <ArrowUpRight className="text-red-600 w-5 h-5" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-[#3A3A2A] break-words leading-relaxed group-hover:text-[#5A5A40] transition-colors">
+                      {t.keterangan}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-[#A3A375] flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                      <Calendar className="w-3 h-3 opacity-50 shrink-0" />
+                      {formatDate(t.tanggal)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] sm:text-sm font-bold text-[#3A3A2A] truncate group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</p>
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider font-bold text-[#A3A375]">{formatDate(t.tanggal)}</p>
-                </div>
+
+                {/* Bagian Kanan: Nominal Transaksi */}
                 <div className="shrink-0 text-right pl-2">
                   <p className={cn(
-                    "text-[11px] sm:text-sm font-black tabular-nums whitespace-nowrap",
+                    "text-xs sm:text-sm font-black tabular-nums whitespace-nowrap",
                     t.tipe === 'pemasukan' ? "text-emerald-700" : "text-red-700"
                   )}>
                     {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}

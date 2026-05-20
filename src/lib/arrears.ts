@@ -54,7 +54,7 @@ export function calculateArrears(
     // Flipping logic based on statusHuniUpdatedAt is often incorrect since updates happen for non-status reasons
     let effectiveStatus = warga.statusHuni;
     if (warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK' || warga.nama === 'Faradila' || warga.nama === 'Fuad') {
-      const boundaryDate = new Date(2026, 4, 11); // 11 Mei 2026
+      const boundaryDate = new Date(2026, 3, 1); // 1 April 2026 (Setelah 30 Maret)
       if (isBefore(checkDate, boundaryDate)) {
         effectiveStatus = 'Menghuni';
       } else {
@@ -118,7 +118,10 @@ export function calculateArrears(
       t.tipe === 'pemasukan' && 
       t.kategoriId === catKegiatan.id && 
       t.wargaId && t.wargaId !== warga.id &&
-      !t.keterangan.toLowerCase().includes('rapat warga')
+      !t.keterangan.toLowerCase().includes('rapat warga') &&
+      !t.keterangan.toLowerCase().includes('bukber') &&
+      !t.keterangan.toLowerCase().includes('berbuka puasa') &&
+      !t.keterangan.toLowerCase().includes('berbuka')
     );
 
     const cleanLabel = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\(.*\)/g, '').replace(/^iuran\s+/g, '').trim();

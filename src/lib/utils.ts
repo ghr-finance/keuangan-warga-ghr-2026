@@ -41,9 +41,9 @@ export function resolveWargaForDate(warga: any, timestamp: number | Date | strin
     ts = Date.now();
   }
 
-  // Batas 11 Mei 2026 00:00:00 UTC atau waktu WIB setempat
-  // Di local time/WIB: 11 Mei 2026
-  const TRANSITION_DATE = new Date('2026-05-11T00:00:00').getTime();
+  // Batas 31 Maret 2026 00:00:00 UTC atau waktu WIB setempat
+  // Di local time/WIB: 31 Maret 2026 (Setelah 30 Maret)
+  const TRANSITION_DATE = new Date('2026-03-31T00:00:00').getTime();
 
   if (ts < TRANSITION_DATE) {
     return {

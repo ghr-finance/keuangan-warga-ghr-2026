@@ -420,7 +420,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   <div className="relative border-l-2 border-[#A3A375]/30 ml-3 pl-6 space-y-6">
                     <div className="relative">
                       <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#F5F5F0] shadow-sm animate-pulse" />
-                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Januari 2026 - 10 Mei 2026</p>
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Januari 2026 - 30 Maret 2026</p>
                       <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Disewakan kepada warga: <span className="text-[#5A5A40] underline font-black">Fuad</span></h5>
                       <p className="text-xs text-[#5A5A40] mt-1 bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
                         Status: <span className="font-bold text-emerald-600">Menghuni (Penyewa Aktif)</span> • Semua iuran yang masuk pada rentang ini otomatis tercatat atas nama Fuad.
@@ -428,7 +428,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                     </div>
                     <div className="relative">
                       <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-amber-500 border-2 border-[#F5F5F0] shadow-sm" />
-                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Mulai 11 Mei 2026 (Masa Sewa Selesai)</p>
+                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Mulai 31 Maret 2026 (Masa Sewa Selesai)</p>
                       <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Kembali ke Pemilik Asli: <span className="text-[#5A5A40] underline font-black">Faradila</span></h5>
                       <p className="text-xs text-[#5A5A40] mt-1 bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
                         Status: <span className="font-bold text-amber-600">Tidak Menghuni (Pemilik Non-Aktif)</span> • Sisa iuran dan tanggung jawab dilanjutkan oleh Faradila.

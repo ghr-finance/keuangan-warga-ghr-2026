@@ -48,23 +48,31 @@ export default function Laporan() {
     return { ...k, amount };
   }).filter(k => k.amount > 0).sort((a,b) => b.amount - a.amount);
 
+  // Cumulative calculations (Jan 2026 to end of selected month)
+  const runningYear = 2026;
+  const yearStart = new Date(runningYear, 0, 1);
+  const cumulativeEnd = endOfMonth(new Date(selectedMonth));
+  
+  const cumulativeTrans = transaksi.filter(t => {
+    const txDate = new Date(t.tanggal);
+    return txDate >= yearStart && txDate <= cumulativeEnd;
+  });
+  
+  const carryforwardTrans = transaksi.filter(t => t.isHistorical || new Date(t.tanggal) < yearStart);
+  const carryforwardBal = carryforwardTrans.reduce((acc, curr) => {
+    if (curr.tipe === 'pemasukan') return acc + curr.jumlah;
+    if (curr.tipe === 'pengeluaran') return acc - curr.jumlah;
+    return acc;
+  }, 0);
+
+  const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumSaldo = cumTotalMasuk - cumTotalKeluar;
+  const finalSaldoAkhir = cumSaldo + carryforwardBal;
+
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const monthName = format(new Date(selectedMonth), 'MMMM yyyy', { locale: id });
-    
-    // Cumulative calculations (Jan 2026 to end of selected month)
-    const runningYear = 2026;
-    const yearStart = new Date(runningYear, 0, 1);
-    const cumulativeEnd = endOfMonth(new Date(selectedMonth));
-    
-    const cumulativeTrans = transaksi.filter(t => {
-      const txDate = new Date(t.tanggal);
-      return txDate >= yearStart && txDate <= cumulativeEnd;
-    });
-    
-    const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
-    const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
-    const cumSaldo = cumTotalMasuk - cumTotalKeluar;
 
     // Header
     doc.setFontSize(20);
@@ -100,11 +108,12 @@ export default function Laporan() {
       }
     });
 
-    // Table 2: Cumulative Summary (Jan 2026 until now)
+    // Table 2: Cumulative Summary (Jan 2026 until now + Carryforward)
     const cumulativeSummaryData = [
       ['Total Pemasukan (Sejak Jan 2026)', formatCurrency(cumTotalMasuk)],
       ['Total Pengeluaran (Sejak Jan 2026)', formatCurrency(cumTotalKeluar)],
-      ['Saldo Kas Akhir', formatCurrency(cumSaldo)]
+      ['Saldo Awal (Carryforward 2025)', formatCurrency(carryforwardBal)],
+      ['Saldo Kas Akhir', formatCurrency(finalSaldoAkhir)]
     ];
 
     autoTable(doc, {
@@ -219,6 +228,48 @@ export default function Laporan() {
           )} title={formatCurrency(surplus)}>
             {formatCurrency(surplus)}
           </p>
+        </div>
+      </div>
+
+      {/* Ringkasan Kumulatif (Sejak Jan 2026) */}
+      <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="w-5 h-5 text-[#5A5A40]" />
+            <h3 className="text-lg font-bold text-[#3A3A2A]">Informasi Total (Kumulatif &amp; Saldo Awal)</h3>
+          </div>
+          <span className="text-[10px] font-bold px-3 py-1 bg-[#A3A375]/10 rounded-full text-[#5A5A40]">
+            Sinking Fund &amp; Cash Carryforward 2025
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
+            <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Saldo Awal (Carryforward 2025)</p>
+            <p className="text-base sm:text-lg font-extrabold text-[#3A3A2A]">{formatCurrency(carryforwardBal)}</p>
+            <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum (Rp 83.268) &amp; Iuran RT (Rp 540.000) akhir tahun 2025.</p>
+          </div>
+          
+          <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
+            <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Pemasukan 2026</p>
+            <p className="text-base sm:text-lg font-extrabold text-emerald-700">+{formatCurrency(cumTotalMasuk)}</p>
+            <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Akumulasi iuran, THR, dan kegiatan yang masuk pada tahun 2026.</p>
+          </div>
+          
+          <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
+            <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Pengeluaran 2026</p>
+            <p className="text-base sm:text-lg font-extrabold text-red-700">-{formatCurrency(cumTotalKeluar)}</p>
+            <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Total dana keluar untuk gaji petugas, operasional, &amp; bukber.</p>
+          </div>
+          
+          <div className="bg-[#5A5A40]/5 p-5 rounded-2xl border border-[#5A5A40]/15">
+            <p className="text-[10px] font-black text-[#5A5A40] uppercase tracking-widest mb-1">Saldo Kas Akhir</p>
+            <p className={cn(
+              "text-base sm:text-lg font-black",
+              finalSaldoAkhir < 0 ? "text-red-600 italic" : "text-[#3A3A2A]"
+            )}>{formatCurrency(finalSaldoAkhir)}</p>
+            <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Dipadukan dengan Carryforward 2025 (Sama persis dengan Dashboard).</p>
+          </div>
         </div>
       </div>
 

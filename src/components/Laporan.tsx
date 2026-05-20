@@ -88,7 +88,16 @@ export default function Laporan() {
       body: monthSummaryData,
       theme: 'striped',
       headStyles: { fillColor: [90, 90, 64] }, // #5A5A40
-      styles: { fontSize: 10, cellPadding: 5 }
+      styles: { fontSize: 10, cellPadding: 5 },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          const text = data.cell.text[0];
+          if (text.includes('-')) {
+            data.cell.styles.textColor = [220, 38, 38]; // text-red-600
+            data.cell.styles.fontStyle = 'italic';
+          }
+        }
+      }
     });
 
     // Table 2: Cumulative Summary (Jan 2026 until now)
@@ -104,7 +113,16 @@ export default function Laporan() {
       body: cumulativeSummaryData,
       theme: 'striped',
       headStyles: { fillColor: [163, 163, 117] }, // #A3A375
-      styles: { fontSize: 10, cellPadding: 5 }
+      styles: { fontSize: 10, cellPadding: 5 },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          const text = data.cell.text[0];
+          if (text.includes('-')) {
+            data.cell.styles.textColor = [220, 38, 38]; // text-red-600
+            data.cell.styles.fontStyle = 'italic';
+          }
+        }
+      }
     });
 
     // Category Breakdown
@@ -159,7 +177,7 @@ export default function Laporan() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-serif font-bold text-[#3A3A2A] tracking-tight">Laporan Bulanan</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#3A3A2A] tracking-tight">Laporan Bulanan</h1>
           <p className="text-[#A3A375] font-medium mt-2">Analisis pemasukan dan pengeluaran tiap bulan.</p>
         </div>
         <div className="flex gap-4">
@@ -185,17 +203,20 @@ export default function Laporan() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
+        <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pemasukan</p>
-          <p className="text-2xl sm:text-3xl font-black text-[#5A5A40]">{formatCurrency(totalMasuk)}</p>
+          <p className="text-xl sm:text-2xl font-black text-[#5A5A40] truncate" title={formatCurrency(totalMasuk)}>{formatCurrency(totalMasuk)}</p>
         </div>
-        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1">
+        <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pengeluaran</p>
-          <p className="text-2xl sm:text-3xl font-black text-[#8B4513]">{formatCurrency(totalKeluar)}</p>
+          <p className="text-xl sm:text-2xl font-black text-[#8B4513] truncate" title={formatCurrency(totalKeluar)}>{formatCurrency(totalKeluar)}</p>
         </div>
-        <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
+        <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Surplus Bersih</p>
-          <p className={cn("text-2xl sm:text-3xl font-black", surplus >= 0 ? "text-[#5A5A40]" : "text-[#8B4513]")}>
+          <p className={cn(
+            "text-xl sm:text-2xl font-black truncate", 
+            surplus < 0 ? "text-red-600 italic" : "text-[#5A5A40]"
+          )} title={formatCurrency(surplus)}>
             {formatCurrency(surplus)}
           </p>
         </div>

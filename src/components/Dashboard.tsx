@@ -103,16 +103,16 @@ export default function Dashboard() {
   const belumBayarCount = wargaWajib.filter(w => !paidThisMonth.has(w.id)).length;
 
   const stats = [
-    { label: 'Saldo Saat Ini', value: formatCurrency(saldo), icon: Wallet, color: 'text-blue-600', bg: 'bg-[#f0f4ff]' },
-    { label: 'Pemasukan Total', value: formatCurrency(totalMasuk), icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-[#f0fff4]' },
-    { label: 'Pengeluaran Total', value: formatCurrency(totalKeluar), icon: TrendingDown, color: 'text-red-600', bg: 'bg-[#fff5f5]' },
-    { label: 'Belum Bayar Iuran', value: `${belumBayarCount} Warga`, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-[#fffbeb]' },
+    { label: 'Saldo Saat Ini', value: formatCurrency(saldo), rawValue: saldo, icon: Wallet, color: 'text-blue-600', bg: 'bg-[#f0f4ff]' },
+    { label: 'Pemasukan Total', value: formatCurrency(totalMasuk), rawValue: totalMasuk, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-[#f0fff4]' },
+    { label: 'Pengeluaran Total', value: formatCurrency(totalKeluar), rawValue: totalKeluar, icon: TrendingDown, color: 'text-red-600', bg: 'bg-[#fff5f5]' },
+    { label: 'Belum Bayar Iuran', value: `${belumBayarCount} Warga`, rawValue: belumBayarCount, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-[#fffbeb]' },
   ];
 
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-4xl font-serif font-bold text-[#3A3A2A] tracking-tight">Ringkasan Keuangan</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#3A3A2A] tracking-tight">Ringkasan Keuangan</h1>
         <p className="text-[#A3A375] font-medium mt-2">Pantau arus kas dan kewajiban warga secara real-time.</p>
       </div>
 
@@ -135,7 +135,10 @@ export default function Dashboard() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] sm:text-xs font-bold text-[#A3A375] uppercase tracking-widest leading-tight truncate">{stat.label}</p>
               <div className="flex items-baseline gap-1 mt-1 overflow-hidden">
-                <p className="text-lg sm:text-xl xl:text-2xl font-black text-[#3A3A2A] leading-tight truncate">
+                <p className={cn(
+                  "text-lg sm:text-xl xl:text-2xl font-black leading-tight truncate",
+                  (stat.rawValue !== undefined && stat.rawValue < 0) ? "text-red-600 italic" : "text-[#3A3A2A]"
+                )}>
                   {stat.value}
                 </p>
               </div>
@@ -160,7 +163,7 @@ export default function Dashboard() {
                 <Home className="w-4 h-4 text-[#A3A375]" />
                 <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Informasi Iuran Bulanan</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">Dana Iuran RT</h2>
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold tracking-tight">Dana Iuran RT</h2>
               <p className="text-[#A3A375] text-xs sm:text-sm font-medium mt-1">Rekapitulasi khusus dana RT yang dikelola lingkungan.</p>
             </div>
             <div className="flex items-center gap-3 bg-white/5 p-3 sm:p-4 rounded-3xl border border-white/10 self-start sm:self-auto min-w-[180px]">
@@ -175,17 +178,22 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="space-y-1">
+            <div className="space-y-1 overflow-hidden">
               <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pemasukan (2026)</p>
-              <p className="text-xl sm:text-2xl font-bold text-emerald-400">+{formatCurrency(rtIncome2026)}</p>
+              <p className="text-lg sm:text-xl font-bold text-emerald-400 truncate">+{formatCurrency(rtIncome2026)}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 overflow-hidden">
               <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pengeluaran (2026)</p>
-              <p className="text-xl sm:text-2xl font-bold text-red-400">-{formatCurrency(rtKeluar)}</p>
+              <p className="text-lg sm:text-xl font-bold text-red-400 truncate">-{formatCurrency(rtKeluar)}</p>
             </div>
-            <div className="pt-6 sm:pt-0 sm:pl-0 lg:pl-8 border-t sm:border-t-0 sm:border-l-0 lg:border-l border-white/10 space-y-1 sm:col-span-2 lg:col-span-1">
+            <div className="pt-6 sm:pt-0 sm:pl-0 lg:pl-8 border-t sm:border-t-0 sm:border-l-0 lg:border-l border-white/10 space-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
               <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
-              <p className="text-2xl sm:text-3xl font-black">{formatCurrency(rtSaldo)}</p>
+              <p className={cn(
+                "text-xl sm:text-2xl font-black truncate",
+                rtSaldo < 0 ? "text-red-400 italic" : "text-white"
+              )}>
+                {formatCurrency(rtSaldo)}
+              </p>
             </div>
           </div>
         </div>

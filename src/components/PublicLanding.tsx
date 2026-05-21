@@ -115,25 +115,26 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
 
   // 2. Iuran RT specific calculations
   const rtMasukCatIds = categories.filter(c => 
-    c.nama.toLowerCase().includes('iuran rt') || 
-    c.nama.toLowerCase().includes('bulanan') || 
-    c.nama.toLowerCase().includes('bengkok')
+    c.nama.toLowerCase() === 'iuran rt'
   ).map(c => c.id);
-
-  const rtTransactions = transaksi.filter(t => rtMasukCatIds.includes(t.kategoriId));
-  const rtIncomeAll = rtTransactions.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
   
-  const rtTransactions2026 = cumulativeTrans.filter(t => rtMasukCatIds.includes(t.kategoriId));
-  const rtKeluar = cumulativeTrans
-    .filter(t => t.tipe === 'pengeluaran' && !t.isHistorical)
-    .reduce((acc, curr) => acc + curr.jumlah, 0);
-
-  const rtIncome2026 = rtTransactions2026
-    .filter(t => t.tipe === 'pemasukan')
-    .reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtKeluarCatIds = categories.filter(c => 
+    c.nama.toLowerCase() === 'penyerahan iuran rt'
+  ).map(c => c.id);
+  
+  const rtMasukTransactions = transaksi.filter(t => t.tipe === 'pemasukan' && rtMasukCatIds.includes(t.kategoriId));
+  const rtKeluarTransactions = transaksi.filter(t => t.tipe === 'pengeluaran' && rtKeluarCatIds.includes(t.kategoriId));
+  
+  const rtMasuk = rtMasukTransactions.reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtKeluar = rtKeluarTransactions.reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtSaldo = rtMasuk - rtKeluar;
 
   const saldoRT2025 = 540000; // Baseline 2025 RT Sinking fund
-  const rtSaldo = rtIncome2026 - rtKeluar + saldoRT2025;
+  
+  // Calculate income purely from 2026 (excluding historical)
+  const rtIncome2026 = rtMasukTransactions
+    .filter(t => !t.isHistorical)
+    .reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // 3. DKM specific calculations
   const dkmCatIds = categories.filter(c => 
@@ -358,7 +359,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                 </div>
                 
                 <div className="h-64 sm:h-72 w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F5F5F0" />
                       <XAxis dataKey="name" stroke="#A3A375" fontSize={11} tickLine={false} />
@@ -426,7 +427,11 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {events.map((event) => {
-                    const progress = event.targetAnggaran && event.targetAnggaran > 0 ? (event.realisasi / event.targetAnggaran) * 100 : 0;
+                    const eventTransactions = transaksi.filter(t => t.eventId === event.id);
+                    const realisasi = eventTransactions
+                      .filter(t => t.tipe === 'pengeluaran')
+                      .reduce((acc, curr) => acc + curr.jumlah, 0);
+                    const progress = event.budget && event.budget > 0 ? (realisasi / event.budget) * 100 : 0;
                     return (
                       <div key={event.id} className="relative bg-[#F5F5F0]/30 border border-[#E5E5DA]/50 rounded-2xl p-5 space-y-4 hover:border-[#A3A375]/50 transition-colors">
                         <div className="flex justify-between items-start">
@@ -445,17 +450,17 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-[#A3A375] font-sans">Realisasi Pengeluaran:</span>
-                            <span className="font-extrabold text-[#3A3A2A]">{formatCurrency(event.realisasi)}</span>
+                            <span className="font-extrabold text-[#3A3A2A]">{formatCurrency(realisasi)}</span>
                           </div>
                           <div className="flex justify-between text-[11px] text-[#A3A375] font-medium">
                             <span>Budget Target:</span>
-                            <span>{formatCurrency(event.targetAnggaran || 0)}</span>
+                            <span>{formatCurrency(event.budget || 0)}</span>
                           </div>
-                          {event.targetAnggaran && event.targetAnggaran > 0 && (
+                          {event.budget && event.budget > 0 ? (
                             <div className="w-full bg-[#E5E5DA]/50 h-1.5 rounded-full overflow-hidden mt-1">
                               <div className="bg-[#5A5A40] h-full rounded-full" style={{ width: `${Math.min(progress, 100)}%` }} />
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     );

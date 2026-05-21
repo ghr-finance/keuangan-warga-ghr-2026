@@ -8,7 +8,10 @@ service cloud.firestore {
 
     // 1. Primitive Definitions & Helpers
     function isSignedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.email == 'ghr-super@ghr.local'
+      );
     }
 
     function incoming() {
@@ -23,10 +26,11 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Special: Admin Check (Bootstrapped for the requesting user)
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'semestasetiawan20@gmail.com'
+        request.auth.token.email == 'semestasetiawan20@gmail.com' ||
+        request.auth.token.email == 'fotoghr@gmail.com' ||
+        request.auth.token.email == 'ghr-super@ghr.local'
       );
     }
 

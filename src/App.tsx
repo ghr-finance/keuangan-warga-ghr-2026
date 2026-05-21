@@ -17,11 +17,21 @@ import {
   Menu,
   X,
   CreditCard,
-  UserCircle2
+  UserCircle2,
+  Lock,
+  LogIn
 } from 'lucide-react';
 import { auth } from './lib/firebase';
 import { dbService } from './services/db';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  onAuthStateChanged, 
+  signOut, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  User as FirebaseUser 
+} from 'firebase/auth';
 import { cn, formatCurrency } from './lib/utils';
 import { format } from 'date-fns';
 import Dashboard from './components/Dashboard';
@@ -43,6 +53,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavItem>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
 
+  // Authentication states
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -56,18 +73,102 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    return onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        const allowedEmails = ['semestasetiawan20@gmail.com', 'fotoghr@gmail.com', 'ghr-super@ghr.local'];
+        if (u.email && allowedEmails.includes(u.email)) {
+          setUser(u);
+        } else {
+          try {
+            await signOut(auth);
+          } catch (e) {
+            console.error('Logout error during rejection', e);
+          }
+          setUser(null);
+          setAuthError('Akses ditolak. Email Anda tidak terdaftar sebagai pengurus GHR.');
+          setShowLoginModal(true);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
   }, []);
 
-  const login = () => {
-    const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider);
+  const loginWithGoogle = async () => {
+    try {
+      setLoginLoading(true);
+      setAuthError(null);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const u = result.user;
+      const allowedEmails = ['semestasetiawan20@gmail.com', 'fotoghr@gmail.com'];
+      if (u && u.email && allowedEmails.includes(u.email)) {
+        setUser(u);
+        setShowLoginModal(false);
+      } else {
+        try {
+          await signOut(auth);
+        } catch (e) {}
+        setUser(null);
+        setAuthError('Akses ditolak. Email Anda tidak terdaftar sebagai pengurus GHR.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAuthError('Gagal masuk dengan Google. Silakan coba lagi.');
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
-  const logout = () => signOut(auth);
+  const loginWithCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) {
+      setAuthError('Silakan lengkapi username dan password.');
+      return;
+    }
+    
+    // Strict match of credentials on client as defensive programming
+    if (username.trim() !== 'ghr-super' || password !== 'repus2602') {
+      setAuthError('Username atau password salah.');
+      return;
+    }
+
+    try {
+      setLoginLoading(true);
+      setAuthError(null);
+      const email = 'ghr-super@ghr.local';
+      try {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        setUser(result.user);
+        setShowLoginModal(false);
+      } catch (fbErr: any) {
+        if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-email') {
+          try {
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            setUser(result.user);
+            setShowLoginModal(false);
+          } catch (createErr: any) {
+            console.error('Error auto-creating super admin:', createErr);
+            setAuthError('Gagal melakukan autentikasi ke Firebase. Pastikan koneksi atau provider Auth Email aktif.');
+          }
+        } else {
+          setAuthError('Username atau password salah.');
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAuthError('Terjadi kesalahan saat masuk.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const logout = () => {
+    signOut(auth);
+    setUser(null);
+    setAuthError(null);
+  };
 
   useEffect(() => {
     if (user) {
@@ -1159,7 +1260,150 @@ export default function App() {
   }
 
   if (!user) {
-    return <PublicLanding onLogin={login} />;
+    return (
+      <>
+        <PublicLanding onLogin={() => {
+          setAuthError(null);
+          setShowLoginModal(true);
+        }} />
+        
+        {/* Modern, Highly Polished Custom Login Modal */}
+        <AnimatePresence>
+          {showLoginModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowLoginModal(false)}
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              />
+              
+              {/* Modal Box */}
+              <motion.div
+                initial={{ scale: 0.95, y: 15, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 15, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.4 }}
+                className="relative bg-[#F5F5F0] rounded-[32px] border border-[#E5E5DA] shadow-2xl p-6 sm:p-8 w-full max-w-md overflow-hidden"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowLoginModal(false)}
+                  className="absolute top-5 right-5 p-2 text-[#A3A375] hover:text-[#5A5A40] rounded-full hover:bg-black/5 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 bg-[#FA3E3E] rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/20 mx-auto mb-4">
+                    <svg 
+                      viewBox="0 0 100 100" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="8" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="w-7 h-7 text-white"
+                    >
+                      <line x1="16" y1="75" x2="84" y2="75" />
+                      <path d="M 24 75 L 24 55 A 8 8 0 0 1 32 47 L 42 47 L 42 75" />
+                      <path d="M 42 75 L 42 34 A 8 8 0 0 1 50 26 A 8 8 0 0 1 58 34 L 58 75" />
+                      <path d="M 58 75 L 58 47 L 68 47 A 8 8 0 0 1 76 55 L 76 75" />
+                    </svg>
+                  </div>
+                  <h3 className="font-serif font-black text-2xl text-[#3A3A2A] tracking-tight">Login Pengurus GHR</h3>
+                  <p className="text-xs text-[#A3A375] font-semibold mt-1">Gunakan Akun Terdaftar untuk mengakses Dashboard</p>
+                </div>
+
+                {/* Error Banner */}
+                {authError && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-3.5 text-xs font-semibold mb-6 text-center leading-relaxed"
+                  >
+                    {authError}
+                  </motion.div>
+                )}
+
+                {/* Action Buttons & Form */}
+                <div className="space-y-4">
+                  {/* Google Login button */}
+                  <button
+                    onClick={loginWithGoogle}
+                    disabled={loginLoading}
+                    className="w-full flex items-center justify-center gap-3 bg-white border border-[#E5E5DA] text-[#3A3A2A] px-5 py-3 rounded-xl hover:bg-[#FAF9F5] shadow-sm hover:shadow transition-all text-xs sm:text-sm font-bold disabled:opacity-50"
+                  >
+                    <svg className="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="#EA4335"
+                        d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.227-3.227C18.281 1.094 15.566 0 12.24 0 5.58 0 0 5.37 0 12s5.58 12 12.24 12c6.96 0 11.57-4.89 11.57-11.79 0-.795-.085-1.4-.195-1.925H12.24z"
+                      />
+                    </svg>
+                    <span>Masuk dengan Google</span>
+                  </button>
+
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="h-px bg-[#E5E5DA] flex-1"></span>
+                    <span className="text-[10px] uppercase tracking-widest text-[#A3A375] font-bold">atau</span>
+                    <span className="h-px bg-[#E5E5DA] flex-1"></span>
+                  </div>
+
+                  {/* Credentials form */}
+                  <form onSubmit={loginWithCredentials} className="space-y-3.5">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-[#5A5A40] mb-1">
+                        Username Super Admin
+                      </label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Masukkan ghr-super"
+                        disabled={loginLoading}
+                        className="w-full bg-white border border-[#E5E5DA] text-[#3A3A2A] p-3 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A3A375]/40"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-[#5A5A40] mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        disabled={loginLoading}
+                        className="w-full bg-white border border-[#E5E5DA] text-[#3A3A2A] p-3 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A3A375]/40"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loginLoading}
+                      className="w-full flex items-center justify-center gap-2 bg-[#5A5A40] hover:bg-[#4E4E37] text-white py-3 px-5 rounded-xl font-bold text-xs transition-all shadow-sm hover:shadow disabled:opacity-50"
+                    >
+                      {loginLoading ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Masuk sebagai Super Admin</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </>
+    );
   }
 
   const navItems = [

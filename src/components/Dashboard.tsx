@@ -289,7 +289,7 @@ export default function Dashboard() {
         <div className="xl:col-span-3 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] h-fit min-w-0 overflow-hidden">
           <h3 className="text-lg sm:text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas</h3>
           <div className="h-[280px] sm:h-[320px] w-full min-w-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">

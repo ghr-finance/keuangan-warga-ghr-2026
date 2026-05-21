@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Kategori, Warga } from '../types';
-import { FileText, Download, TrendingUp, TrendingDown, ChevronRight, PieChart } from 'lucide-react';
+import { FileText, Download, TrendingUp, TrendingDown, ChevronRight, PieChart, Coins, Home, Moon } from 'lucide-react';
 import { formatCurrency, cn, resolveWargaForDate } from '../lib/utils';
 import { format, startOfMonth, endOfMonth, isWithinInterval, startOfYear, eachMonthOfInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -33,8 +33,38 @@ export default function Laporan() {
   const start = startOfMonth(new Date(selectedMonth));
   const end = endOfMonth(new Date(selectedMonth));
 
+  // RT & DKM category and description helper filters for stakeholder separation
+  const rtMasukCatIds = kategori.filter(c => 
+    c.nama.toLowerCase() === 'iuran rt'
+  ).map(c => c.id);
+  
+  const rtKeluarCatIds = kategori.filter(c => 
+    c.nama.toLowerCase() === 'penyerahan iuran rt'
+  ).map(c => c.id);
+
+  const dkmCatIds = kategori.filter(c => 
+    c.nama.toLowerCase().includes('dkm') || 
+    c.nama.toLowerCase().includes('mushola') || 
+    c.nama.toLowerCase().includes('masjid')
+  ).map(c => c.id);
+
+  const isRTTransaction = (t: Transaksi) => {
+    return rtMasukCatIds.includes(t.kategoriId) || rtKeluarCatIds.includes(t.kategoriId);
+  };
+
+  const isDKMTransaction = (t: Transaksi) => {
+    const fromCat = dkmCatIds.includes(t.kategoriId);
+    const fromDesc = (t.keterangan || '').toLowerCase().includes('dkm') || 
+                     (t.keterangan || '').toLowerCase().includes('mushola') || 
+                     (t.keterangan || '').toLowerCase().includes('musholla') ||
+                     (t.keterangan || '').toLowerCase().includes('masjid');
+    return fromCat || fromDesc;
+  };
+
   const monthTransaksi = transaksi.filter(t => 
-    isWithinInterval(new Date(t.tanggal), { start, end })
+    isWithinInterval(new Date(t.tanggal), { start, end }) &&
+    !isRTTransaction(t) &&
+    !isDKMTransaction(t)
   );
 
   const totalMasuk = monthTransaksi.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
@@ -55,10 +85,10 @@ export default function Laporan() {
   
   const cumulativeTrans = transaksi.filter(t => {
     const txDate = new Date(t.tanggal);
-    return txDate >= yearStart && txDate <= cumulativeEnd;
+    return txDate >= yearStart && txDate <= cumulativeEnd && !isRTTransaction(t) && !isDKMTransaction(t);
   });
   
-  const carryforwardTrans = transaksi.filter(t => t.isHistorical || new Date(t.tanggal) < yearStart);
+  const carryforwardTrans = transaksi.filter(t => (t.isHistorical || new Date(t.tanggal) < yearStart) && !isRTTransaction(t) && !isDKMTransaction(t));
   const carryforwardBal = carryforwardTrans.reduce((acc, curr) => {
     if (curr.tipe === 'pemasukan') return acc + curr.jumlah;
     if (curr.tipe === 'pengeluaran') return acc - curr.jumlah;
@@ -69,6 +99,38 @@ export default function Laporan() {
   const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   const cumSaldo = cumTotalMasuk - cumTotalKeluar;
   const finalSaldoAkhir = cumSaldo + carryforwardBal;
+
+  // RT & DKM calculations for the selected month
+  const monthRTTransactions = transaksi.filter(t => 
+    isWithinInterval(new Date(t.tanggal), { start, end }) && isRTTransaction(t)
+  );
+  const rtMonthMasuk = monthRTTransactions.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtMonthKeluar = monthRTTransactions.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtMonthSurplus = rtMonthMasuk - rtMonthKeluar;
+
+  const monthDKMTransactions = transaksi.filter(t => 
+    isWithinInterval(new Date(t.tanggal), { start, end }) && isDKMTransaction(t)
+  );
+  const dkmMonthMasuk = monthDKMTransactions.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const dkmMonthKeluar = monthDKMTransactions.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const dkmMonthSurplus = dkmMonthMasuk - dkmMonthKeluar;
+
+  // Cumulative balances up to the end of selected month for RT & DKM
+  const rtCumulativeTransactions = transaksi.filter(t => {
+    const txDate = new Date(t.tanggal);
+    return txDate <= cumulativeEnd && isRTTransaction(t);
+  });
+  const rtCumulativeSaldo = rtCumulativeTransactions.reduce((acc, curr) => {
+    return curr.tipe === 'pemasukan' ? acc + curr.jumlah : acc - curr.jumlah;
+  }, 0);
+
+  const dkmCumulativeTransactions = transaksi.filter(t => {
+    const txDate = new Date(t.tanggal);
+    return txDate <= cumulativeEnd && isDKMTransaction(t);
+  });
+  const dkmCumulativeSaldo = dkmCumulativeTransactions.reduce((acc, curr) => {
+    return curr.tipe === 'pemasukan' ? acc + curr.jumlah : acc - curr.jumlah;
+  }, 0);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -134,6 +196,27 @@ export default function Laporan() {
       }
     });
 
+    // Table 2b: Separated Stakeholder Summary (Iuran RT & DKM)
+    const stakeholderSummaryData = [
+      ['Dana Iuran RT', `+${formatCurrency(rtMonthMasuk)}`, `-${formatCurrency(rtMonthKeluar)}`, formatCurrency(rtMonthSurplus), formatCurrency(rtCumulativeSaldo)],
+      ['Dana Kas DKM', `+${formatCurrency(dkmMonthMasuk)}`, `-${formatCurrency(dkmMonthKeluar)}`, formatCurrency(dkmMonthSurplus), formatCurrency(dkmCumulativeSaldo)]
+    ];
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      head: [['Kas Stakeholder Terpisah', 'Masuk (Bulan Ini)', 'Keluar (Bulan Ini)', 'Surplus (Bulan Ini)', 'Saldo Akhir']],
+      body: stakeholderSummaryData,
+      theme: 'striped',
+      headStyles: { fillColor: [74, 85, 78] }, // #4A554E (dark sage)
+      styles: { fontSize: 9, cellPadding: 5 },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+        4: { halign: 'right' }
+      }
+    });
+
     // Category Breakdown
     const categoryData = categorySummary.map(k => [
       k.nama,
@@ -167,7 +250,7 @@ export default function Laporan() {
 
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 10,
-      head: [['Tanggal', 'Keterangan', 'Kategori', 'Masuk', 'Keluar']],
+      head: [['Tanggal', 'Keterangan (Kas Umum)', 'Kategori', 'Masuk', 'Keluar']],
       body: detailData,
       theme: 'grid',
       headStyles: { fillColor: [90, 90, 64] },
@@ -177,6 +260,66 @@ export default function Laporan() {
         4: { halign: 'right' }
       }
     });
+
+    // Table: Detailed RT Transactions
+    if (monthRTTransactions.length > 0) {
+      const rtDetailData = monthRTTransactions
+        .sort((a, b) => b.tanggal - a.tanggal)
+        .map(t => {
+          const cat = kategori.find(k => k.id === t.kategoriId)?.nama || '-';
+          const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama || '-';
+          return [
+            format(new Date(t.tanggal), 'dd/MM/yyyy'),
+            t.keterangan + (wName !== '-' ? ` (${wName})` : ''),
+            cat,
+            t.tipe === 'pemasukan' ? formatCurrency(t.jumlah) : '',
+            t.tipe === 'pengeluaran' ? formatCurrency(t.jumlah) : ''
+          ];
+        });
+
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 10,
+        head: [[{ content: 'Detail Transaksi Iuran RT (Sinking Fund)', colSpan: 5, styles: { halign: 'left', fillColor: [90, 90, 64] } }], ['Tanggal', 'Keterangan', 'Kategori', 'Masuk', 'Keluar']],
+        body: rtDetailData,
+        theme: 'grid',
+        headStyles: { fillColor: [110, 110, 85] },
+        styles: { fontSize: 8 },
+        columnStyles: {
+          3: { halign: 'right' },
+          4: { halign: 'right' }
+        }
+      });
+    }
+
+    // Table: Detailed DKM Transactions
+    if (monthDKMTransactions.length > 0) {
+      const dkmDetailData = monthDKMTransactions
+        .sort((a, b) => b.tanggal - a.tanggal)
+        .map(t => {
+          const cat = kategori.find(k => k.id === t.kategoriId)?.nama || '-';
+          const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama || '-';
+          return [
+            format(new Date(t.tanggal), 'dd/MM/yyyy'),
+            t.keterangan + (wName !== '-' ? ` (${wName})` : ''),
+            cat,
+            t.tipe === 'pemasukan' ? formatCurrency(t.jumlah) : '',
+            t.tipe === 'pengeluaran' ? formatCurrency(t.jumlah) : ''
+          ];
+        });
+
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 10,
+        head: [[{ content: 'Detail Transaksi Kas DKM', colSpan: 5, styles: { halign: 'left', fillColor: [71, 85, 76] } }], ['Tanggal', 'Keterangan', 'Kategori', 'Masuk', 'Keluar']],
+        body: dkmDetailData,
+        theme: 'grid',
+        headStyles: { fillColor: [95, 110, 100] },
+        styles: { fontSize: 8 },
+        columnStyles: {
+          3: { halign: 'right' },
+          4: { halign: 'right' }
+        }
+      });
+    }
 
     // Save PDF
     doc.save(`Laporan_Kas_GHR_${monthName.replace(' ', '_')}.pdf`);
@@ -231,6 +374,115 @@ export default function Laporan() {
         </div>
       </div>
 
+      {/* Kas Stakeholder Terpisah (RT & DKM) */}
+      <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#F5F5F0] pb-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-[#3A3A2A] flex items-center gap-2">
+              <Coins className="w-5 h-5 text-[#5A5A40]" />
+              Kas Stakeholder Terpisah ({format(new Date(selectedMonth), 'MMMM yyyy', { locale: id })})
+            </h3>
+            <p className="text-xs text-[#A3A375] font-medium leading-relaxed">
+              Pencatatan kas untuk iuran RT (sinking fund khusus) dan kas Mushola/DKM yang dikelola terpisah.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Iuran RT Card */}
+          <div className="bg-[#5A5A40]/5 border border-[#5A5A40]/15 rounded-[24px] p-6 space-y-4 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute right-0 top-0 w-32 h-32 bg-white/40 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            
+            <div className="relative z-10 space-y-3">
+              <div className="flex justify-between items-start gap-4">
+                <div className="space-y-1 min-w-0">
+                  <div className="inline-flex items-center gap-1.5 bg-[#5A5A40]/10 px-3 py-1 rounded-full">
+                    <Home className="w-3 h-3 text-[#5A5A40]" />
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#5A5A40]">Sinking Fund RT</span>
+                  </div>
+                  <h4 className="text-base font-bold text-[#3A3A2A] truncate">Dana Iuran RT</h4>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Akhir Periode</p>
+                  <p className={cn(
+                    "text-lg font-black tabular-nums mt-0.5",
+                    rtCumulativeSaldo < 0 ? "text-red-650 font-bold italic" : "text-[#5A5A40]"
+                  )}>
+                    {formatCurrency(rtCumulativeSaldo)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#5A5A40]/10 text-xs">
+              <div>
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Masuk (Bulan Ini)</p>
+                <p className="font-bold text-emerald-700 mt-1">+{formatCurrency(rtMonthMasuk)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Keluar (Bulan Ini)</p>
+                <p className="font-bold text-red-700 mt-1">-{formatCurrency(rtMonthKeluar)}</p>
+              </div>
+              <div className="pl-3 border-l border-[#5A5A40]/10">
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Surplus (Bulan Ini)</p>
+                <p className={cn(
+                  "font-black mt-1",
+                  rtMonthSurplus < 0 ? "text-red-700 italic" : "text-[#5A5A40]"
+                )}>
+                  {formatCurrency(rtMonthSurplus)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* DKM Mushola Card */}
+          <div className="bg-[#47554C]/5 border border-[#47554C]/15 rounded-[24px] p-6 space-y-4 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute right-0 top-0 w-32 h-32 bg-white/40 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            
+            <div className="relative z-10 space-y-3">
+              <div className="flex justify-between items-start gap-4">
+                <div className="space-y-1 min-w-0">
+                  <div className="inline-flex items-center gap-1.5 bg-[#47554C]/10 px-3 py-1 rounded-full">
+                    <Moon className="w-3 h-3 text-[#47554C]" />
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#47554C]">Kas Masjid / Mushola</span>
+                  </div>
+                  <h4 className="text-base font-bold text-[#3A3A2A] truncate">Dana Kas DKM</h4>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Akhir Periode</p>
+                  <p className={cn(
+                    "text-lg font-black tabular-nums mt-0.5",
+                    dkmCumulativeSaldo < 0 ? "text-red-650 font-bold italic" : "text-[#47554C]"
+                  )}>
+                    {formatCurrency(dkmCumulativeSaldo)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#47554C]/10 text-xs">
+              <div>
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Masuk (Bulan Ini)</p>
+                <p className="font-bold text-emerald-700 mt-1">+{formatCurrency(dkmMonthMasuk)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Keluar (Bulan Ini)</p>
+                <p className="font-bold text-red-700 mt-1">-{formatCurrency(dkmMonthKeluar)}</p>
+              </div>
+              <div className="pl-3 border-l border-[#47554C]/10">
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Surplus (Bulan Ini)</p>
+                <p className={cn(
+                  "font-black mt-1",
+                  dkmMonthSurplus < 0 ? "text-red-700 italic" : "text-[#47554C]"
+                )}>
+                  {formatCurrency(dkmMonthSurplus)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Ringkasan Kumulatif (Sejak Jan 2026) */}
       <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -239,7 +491,7 @@ export default function Laporan() {
             <h3 className="text-lg font-bold text-[#3A3A2A]">Informasi Total (Kumulatif &amp; Saldo Awal)</h3>
           </div>
           <span className="text-[10px] font-bold px-3 py-1 bg-[#A3A375]/10 rounded-full text-[#5A5A40]">
-            Sinking Fund &amp; Cash Carryforward 2025
+            Kas Umum &amp; Carryforward 2025
           </span>
         </div>
         
@@ -247,7 +499,7 @@ export default function Laporan() {
           <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Saldo Awal (Carryforward 2025)</p>
             <p className="text-base sm:text-lg font-extrabold text-[#3A3A2A]">{formatCurrency(carryforwardBal)}</p>
-            <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum (Rp 83.268) &amp; Iuran RT (Rp 540.000) akhir tahun 2025.</p>
+            <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum Wilayah (Rp 83.268) akhir tahun 2025.</p>
           </div>
           
           <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">

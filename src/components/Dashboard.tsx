@@ -45,10 +45,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
-  const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
-  const saldo = totalMasuk - totalKeluar;
-
   // Refined approach for Iuran RT: pre-filter using categories
   const [categories, setCategories] = useState<Kategori[]>([]);
   useEffect(() => {
@@ -64,6 +60,31 @@ export default function Dashboard() {
   const rtKeluarCatIds = categories.filter(c => 
     c.nama.toLowerCase() === 'penyerahan iuran rt'
   ).map(c => c.id);
+
+  // DKM calculations
+  const dkmCatIds = categories.filter(c => 
+    c.nama.toLowerCase().includes('dkm') || 
+    c.nama.toLowerCase().includes('mushola') || 
+    c.nama.toLowerCase().includes('masjid')
+  ).map(c => c.id);
+
+  const isRTTransaction = (t: Transaksi) => {
+    return rtMasukCatIds.includes(t.kategoriId) || rtKeluarCatIds.includes(t.kategoriId);
+  };
+
+  const isDKMTransaction = (t: Transaksi) => {
+    const fromCat = dkmCatIds.includes(t.kategoriId);
+    const fromDesc = t.keterangan.toLowerCase().includes('dkm') || 
+                     t.keterangan.toLowerCase().includes('mushola') || 
+                     t.keterangan.toLowerCase().includes('musholla') ||
+                     t.keterangan.toLowerCase().includes('masjid');
+    return fromCat || fromDesc;
+  };
+
+  // Main general financial metrics (excluding RT/DKM per stakeholder requirement)
+  const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const saldo = totalMasuk - totalKeluar;
   
   const rtMasukTransactions = transaksi.filter(t => t.tipe === 'pemasukan' && rtMasukCatIds.includes(t.kategoriId));
   const rtKeluarTransactions = transaksi.filter(t => t.tipe === 'pengeluaran' && rtKeluarCatIds.includes(t.kategoriId));
@@ -81,21 +102,7 @@ export default function Dashboard() {
     .filter(t => !t.isHistorical)
     .reduce((acc, curr) => acc + curr.jumlah, 0);
 
-  // DKM calculations
-  const dkmCatIds = categories.filter(c => 
-    c.nama.toLowerCase().includes('dkm') || 
-    c.nama.toLowerCase().includes('mushola') || 
-    c.nama.toLowerCase().includes('masjid')
-  ).map(c => c.id);
-
-  const dkmTransactions = transaksi.filter(t => {
-    const fromCat = dkmCatIds.includes(t.kategoriId);
-    const fromDesc = t.keterangan.toLowerCase().includes('dkm') || 
-                     t.keterangan.toLowerCase().includes('mushola') || 
-                     t.keterangan.toLowerCase().includes('musholla') ||
-                     t.keterangan.toLowerCase().includes('masjid');
-    return fromCat || fromDesc;
-  });
+  const dkmTransactions = transaksi.filter(t => isDKMTransaction(t));
 
   const dkmMasukTransactions = dkmTransactions.filter(t => t.tipe === 'pemasukan');
   const dkmKeluarTransactions = dkmTransactions.filter(t => t.tipe === 'pengeluaran');

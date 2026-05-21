@@ -87,9 +87,38 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
     };
   }, []);
 
-  // 1. Calculate General RT Balance Metrics (identical to Admin Panel)
-  const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
-  const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
+  // 1. Core Categories & Identification Helpers for RT & DKM
+  const rtMasukCatIds = categories.filter(c => 
+    c.nama.toLowerCase() === 'iuran rt'
+  ).map(c => c.id);
+  
+  const rtKeluarCatIds = categories.filter(c => 
+    c.nama.toLowerCase() === 'penyerahan iuran rt'
+  ).map(c => c.id);
+
+  const dkmCatIds = categories.filter(c => 
+    c.nama.toLowerCase().includes('dkm') || 
+    c.nama.toLowerCase().includes('mushola') || 
+    c.nama.toLowerCase().includes('masjid')
+  ).map(c => c.id);
+
+  const isRTTransaction = (t: any) => {
+    return rtMasukCatIds.includes(t.kategoriId) || rtKeluarCatIds.includes(t.kategoriId);
+  };
+
+  const isDKMTransaction = (t: any) => {
+    const fromCat = dkmCatIds.includes(t.kategoriId);
+    const fromDesc = t.keterangan.toLowerCase().includes('dkm') || 
+                     t.keterangan.toLowerCase().includes('mushola') || 
+                     t.keterangan.toLowerCase().includes('musholla') ||
+                     t.keterangan.toLowerCase().includes('masjid');
+    return fromCat || fromDesc;
+  };
+
+  // Calculate General RT Balance Metrics (identical to Admin Panel)
+  // These exclude Iuran RT and DKM transactions per stakeholder requirement
+  const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
   const saldoSemua = totalMasuk - totalKeluar;
 
   // Cumulative Year 2026 (Since Jan 2026)
@@ -101,27 +130,21 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
     return txDate >= yearStart;
   });
 
-  const carryforwardTrans = transaksi.filter(t => t.isHistorical || new Date(t.tanggal) < yearStart);
+  // Calculate General Carryforward from 2025 (Excluding RT/DKM)
+  const carryforwardTrans = transaksi.filter(t => (t.isHistorical || new Date(t.tanggal) < yearStart) && !isRTTransaction(t) && !isDKMTransaction(t));
   const carryforwardBal = carryforwardTrans.reduce((acc, curr) => {
     if (curr.tipe === 'pemasukan') return acc + curr.jumlah;
     if (curr.tipe === 'pengeluaran') return acc - curr.jumlah;
     return acc;
   }, 0);
 
-  const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
-  const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
+  // General Grand Totals for 2026 (Excluding RT/DKM)
+  const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
   const cumSaldo = cumTotalMasuk - cumTotalKeluar;
   const finalSaldoAkhir = cumSaldo + carryforwardBal;
 
   // 2. Iuran RT specific calculations
-  const rtMasukCatIds = categories.filter(c => 
-    c.nama.toLowerCase() === 'iuran rt'
-  ).map(c => c.id);
-  
-  const rtKeluarCatIds = categories.filter(c => 
-    c.nama.toLowerCase() === 'penyerahan iuran rt'
-  ).map(c => c.id);
-  
   const rtMasukTransactions = transaksi.filter(t => t.tipe === 'pemasukan' && rtMasukCatIds.includes(t.kategoriId));
   const rtKeluarTransactions = transaksi.filter(t => t.tipe === 'pengeluaran' && rtKeluarCatIds.includes(t.kategoriId));
   
@@ -137,20 +160,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
     .reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // 3. DKM specific calculations
-  const dkmCatIds = categories.filter(c => 
-    c.nama.toLowerCase().includes('dkm') || 
-    c.nama.toLowerCase().includes('mushola') || 
-    c.nama.toLowerCase().includes('masjid')
-  ).map(c => c.id);
-
-  const dkmTransactions = transaksi.filter(t => {
-    const fromCat = dkmCatIds.includes(t.kategoriId);
-    const fromDesc = t.keterangan.toLowerCase().includes('dkm') || 
-                     t.keterangan.toLowerCase().includes('mushola') || 
-                     t.keterangan.toLowerCase().includes('musholla') ||
-                     t.keterangan.toLowerCase().includes('masjid');
-    return fromCat || fromDesc;
-  });
+  const dkmTransactions = transaksi.filter(t => isDKMTransaction(t));
 
   const dkmMasuk = dkmTransactions.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
   const dkmKeluar = dkmTransactions.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);

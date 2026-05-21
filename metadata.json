@@ -1,6 +1,6 @@
 {
   "name": "Keuangan Warga",
-  "description": "Aplikasi pengelolaan arus kas yang dirancang khusus untuk kebutuhan warga, mencakup manajemen warga, transaksi, kategori, budgeting, dan laporan bulanan.",
+  "description": "Portal Keuangan warga GHR (Green Hills Residency) untuk transparansi publik, rekap pemasukan, pengeluaran, anggaran kegiatan, iuran bulanan RT, dan kas mushola/masjid.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

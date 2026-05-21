@@ -11,7 +11,9 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
-  Home
+  Home,
+  Moon,
+  Sparkles
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -76,6 +78,33 @@ export default function Dashboard() {
   
   // Calculate income purely from 2026 (excluding historical)
   const rtIncome2026 = rtMasukTransactions
+    .filter(t => !t.isHistorical)
+    .reduce((acc, curr) => acc + curr.jumlah, 0);
+
+  // DKM calculations
+  const dkmCatIds = categories.filter(c => 
+    c.nama.toLowerCase().includes('dkm') || 
+    c.nama.toLowerCase().includes('mushola') || 
+    c.nama.toLowerCase().includes('masjid')
+  ).map(c => c.id);
+
+  const dkmTransactions = transaksi.filter(t => {
+    const fromCat = dkmCatIds.includes(t.kategoriId);
+    const fromDesc = t.keterangan.toLowerCase().includes('dkm') || 
+                     t.keterangan.toLowerCase().includes('mushola') || 
+                     t.keterangan.toLowerCase().includes('musholla') ||
+                     t.keterangan.toLowerCase().includes('masjid');
+    return fromCat || fromDesc;
+  });
+
+  const dkmMasukTransactions = dkmTransactions.filter(t => t.tipe === 'pemasukan');
+  const dkmKeluarTransactions = dkmTransactions.filter(t => t.tipe === 'pengeluaran');
+
+  const dkmMasuk = dkmMasukTransactions.reduce((acc, curr) => acc + curr.jumlah, 0);
+  const dkmKeluar = dkmKeluarTransactions.reduce((acc, curr) => acc + curr.jumlah, 0);
+  const dkmSaldo = dkmMasuk - dkmKeluar;
+
+  const dkmIncome2026 = dkmMasukTransactions
     .filter(t => !t.isHistorical)
     .reduce((acc, curr) => acc + curr.jumlah, 0);
 
@@ -153,50 +182,101 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Special RT Summary Card */}
-      <div className="bg-[#5A5A40] rounded-[40px] p-6 sm:p-10 text-[#F5F5F0] shadow-xl shadow-[#5A5A40]/30 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="relative z-10">
-          <div className="flex flex-col md:flex-row md:items-start lg:items-center justify-between gap-6 mb-10">
-            <div>
-              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full mb-4">
-                <Home className="w-4 h-4 text-[#A3A375]" />
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Informasi Iuran Bulanan</span>
+      {/* Container for RT & DKM Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+        
+        {/* Special RT Summary Card */}
+        <div className="bg-[#5A5A40] rounded-[32px] sm:rounded-[40px] p-6 sm:p-8 md:p-10 text-[#F5F5F0] shadow-xl shadow-[#5A5A40]/15 relative overflow-hidden flex flex-col justify-between h-full min-h-[300px]">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="relative z-10 flex-1 flex flex-col justify-between gap-8">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                <div className="inline-flex items-center gap-2 bg-white/10 px-3.5 py-1 rounded-full mb-3.5">
+                  <Home className="w-3.5 h-3.5 text-[#A3A375]" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Informasi Iuran Bulanan</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white">Dana Iuran RT</h2>
+                <p className="text-[#A3A375] text-xs font-semibold mt-1 leading-relaxed">Rekapitulasi khusus dana RT yang dikelola lingkungan.</p>
               </div>
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold tracking-tight">Dana Iuran RT</h2>
-              <p className="text-[#A3A375] text-xs sm:text-sm font-medium mt-1">Rekapitulasi khusus dana RT yang dikelola lingkungan.</p>
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
+                <div className="w-8 h-8 bg-[#A3A375] rounded-lg flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-[#5A5A40]" />
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Awal 2025</p>
+                  <p className="text-sm font-extrabold text-white">{formatCurrency(saldoRT2025)}</p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-3 bg-white/5 p-3 sm:p-4 rounded-3xl border border-white/10 self-start sm:self-auto min-w-[180px]">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#A3A375] rounded-xl flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#5A5A40]" />
-              </div>
-              <div>
-                <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Awal 2025</p>
-                <p className="text-base sm:text-lg font-bold">{formatCurrency(saldoRT2025)}</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="space-y-1 overflow-hidden">
-              <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pemasukan (2026)</p>
-              <p className="text-lg sm:text-xl font-bold text-emerald-400 truncate">+{formatCurrency(rtIncome2026)}</p>
-            </div>
-            <div className="space-y-1 overflow-hidden">
-              <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pengeluaran (2026)</p>
-              <p className="text-lg sm:text-xl font-bold text-red-400 truncate">-{formatCurrency(rtKeluar)}</p>
-            </div>
-            <div className="pt-6 sm:pt-0 sm:pl-0 lg:pl-8 border-t sm:border-t-0 sm:border-l-0 lg:border-l border-white/10 space-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
-              <p className="text-[9px] sm:text-[10px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
-              <p className={cn(
-                "text-xl sm:text-2xl font-black truncate",
-                rtSaldo < 0 ? "text-red-400 italic" : "text-white"
-              )}>
-                {formatCurrency(rtSaldo)}
-              </p>
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/10">
+              <div className="space-y-1 overflow-hidden">
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pemasukan</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-emerald-400 truncate">+{formatCurrency(rtIncome2026)}</p>
+              </div>
+              <div className="space-y-1 overflow-hidden">
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pengeluaran</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-red-400 truncate">-{formatCurrency(rtKeluar)}</p>
+              </div>
+              <div className="pl-4 border-l border-white/10 space-y-1 overflow-hidden">
+                <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
+                <p className={cn(
+                  "text-sm sm:text-base md:text-lg font-black truncate",
+                  rtSaldo < 0 ? "text-red-400 italic font-bold" : "text-white"
+                )}>
+                  {formatCurrency(rtSaldo)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Special DKM Summary Card */}
+        <div className="bg-[#47554C] rounded-[32px] sm:rounded-[40px] p-6 sm:p-8 md:p-10 text-[#F5F5F0] shadow-xl shadow-[#47554C]/15 relative overflow-hidden flex flex-col justify-between h-full min-h-[300px]">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="relative z-10 flex-1 flex flex-col justify-between gap-8">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                <div className="inline-flex items-center gap-2 bg-white/10 px-3.5 py-1 rounded-full mb-3.5">
+                  <Moon className="w-3.5 h-3.5 text-emerald-200" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-200">Informasi Kas Masjid</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white">Dana Kas DKM</h2>
+                <p className="text-[#A6B2A8] text-xs font-semibold mt-1 leading-relaxed">Dana kas mushola/masjid, infaq warga, dan operasional ibadah.</p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
+                <div className="w-8 h-8 bg-emerald-700/60 rounded-lg flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-emerald-200" />
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-[#A6B2A8] uppercase tracking-widest">Status Kas</p>
+                  <p className="text-sm font-extrabold text-[#95C2A5]">Aktif &amp; Terbuka</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/10">
+              <div className="space-y-1 overflow-hidden">
+                <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest opacity-80">Pemasukan</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-emerald-400 truncate">+{formatCurrency(dkmIncome2026)}</p>
+              </div>
+              <div className="space-y-1 overflow-hidden">
+                <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest opacity-80">Pengeluaran</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-red-400 truncate">-{formatCurrency(dkmKeluar)}</p>
+              </div>
+              <div className="pl-4 border-l border-white/10 space-y-1 overflow-hidden">
+                <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
+                <p className={cn(
+                  "text-sm sm:text-base md:text-lg font-black truncate",
+                  dkmSaldo < 0 ? "text-red-400 italic font-bold" : "text-white"
+                )}>
+                  {formatCurrency(dkmSaldo)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <IuranModal 

@@ -71,16 +71,14 @@ service cloud.firestore {
     }
 
     match /kategori/{kategoriId} {
-      allow list: if isAdmin();
-      allow get: if isSignedIn();
+      allow list, get: if true;
       allow create: if isAdmin() && isValidKategori(incoming());
       allow update: if isAdmin() && isValidKategori(incoming());
       allow delete: if isAdmin();
     }
 
     match /transaksi/{transaksiId} {
-      allow list: if isAdmin();
-      allow get: if isSignedIn();
+      allow list, get: if true;
       allow create: if isAdmin() && isValidTransaksi(incoming()) && 
                     exists(/databases/$(database)/documents/kategori/$(incoming().kategoriId));
       allow update: if isAdmin() && isValidTransaksi(incoming());
@@ -104,7 +102,7 @@ service cloud.firestore {
     }
 
     match /events/{eventId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 

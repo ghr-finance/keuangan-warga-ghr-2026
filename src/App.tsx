@@ -31,6 +31,7 @@ import Laporan from './components/Laporan';
 import EventList from './components/Events';
 import Pengaturan from './components/Pengaturan';
 import PetugasList from './components/Petugas';
+import PublicLanding from './components/PublicLanding';
 import { backupService } from './services/backup';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -1158,24 +1159,7 @@ export default function App() {
   }
 
   if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F5F0] p-4 text-center">
-        <div className="w-20 h-20 bg-[#5A5A40] rounded-[32px] flex items-center justify-center mb-6 shadow-xl shadow-[#A3A375]/20">
-          <CreditCard className="w-10 h-10 text-[#F5F5F0]" />
-        </div>
-        <h1 className="text-4xl font-serif font-bold text-[#3A3A2A] mb-3">Keuangan Warga</h1>
-        <p className="text-[#4A4A3A] mb-8 max-w-xs opacity-80 leading-relaxed font-medium">
-          Kelola arus kas, iuran warga, dan anggaran kegiatan GHR dengan sentuhan kenyamanan dan transparansi.
-        </p>
-        <button
-          onClick={login}
-          className="flex items-center gap-3 bg-white text-[#4A4A3A] px-8 py-4 rounded-full border border-[#E5E5DA] shadow-sm hover:shadow-md hover:bg-gray-50 transition-all font-bold"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" className="w-5 h-5" alt="Google" />
-          Masuk dengan Google
-        </button>
-      </div>
-    );
+    return <PublicLanding onLogin={login} />;
   }
 
   const navItems = [

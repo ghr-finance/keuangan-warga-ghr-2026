@@ -29,6 +29,38 @@ import {
 import { subMonths, format, isSameMonth, endOfMonth } from 'date-fns';
 import { Transaksi, Kategori, Event } from '../types';
 
+export function GhrBrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const sizeClasses = {
+    sm: "w-8 h-8 rounded-lg",
+    md: "w-10 h-10 rounded-xl",
+    lg: "w-12 h-12 rounded-2xl"
+  };
+  const iconClasses = {
+    sm: "w-5 h-5",
+    md: "w-6 h-6",
+    lg: "w-7.5 h-7.5"
+  };
+  
+  return (
+    <div className={cn("bg-[#FA3E3E] flex items-center justify-center shadow-md", sizeClasses[size])}>
+      <svg 
+        viewBox="0 0 100 100" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="8" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className={cn("text-white", iconClasses[size])}
+      >
+        <line x1="16" y1="75" x2="84" y2="75" />
+        <path d="M 24 75 L 24 55 A 8 8 0 0 1 32 47 L 42 47 L 42 75" />
+        <path d="M 42 75 L 42 34 A 8 8 0 0 1 50 26 A 8 8 0 0 1 58 34 L 58 75" />
+        <path d="M 58 75 L 58 47 L 68 47 A 8 8 0 0 1 76 55 L 76 75" />
+      </svg>
+    </div>
+  );
+}
+
 interface PublicLandingProps {
   onLogin: () => void;
 }
@@ -154,9 +186,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
       <header className="sticky top-0 z-50 bg-[#F5F5F0]/85 backdrop-blur-md border-b border-[#E5E5DA]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#5A5A40] rounded-xl flex items-center justify-center shadow-md">
-              <CreditCard className="w-5.5 h-5.5 text-white" />
-            </div>
+            <GhrBrandLogo size="md" />
             <div>
               <span className="font-serif font-extrabold text-lg sm:text-xl text-[#3A3A2A] tracking-tight block leading-none">Keuangan GHR</span>
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-[#A3A375]">Transparansi Publik</span>
@@ -436,34 +466,27 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
           </>
         )}
 
-        {/* Security / Privacy Assurance Notice Card */}
-        <section className="bg-amber-50 rounded-[24px] border border-amber-200/50 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-amber-100 rounded-xl text-amber-800 shrink-0">
-              <ShieldAlert className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-amber-900">Mengapa Beberapa Data Tidak Ditampilkan?</h4>
-              <p className="text-xs text-amber-800/80 mt-1 max-w-2xl leading-relaxed font-medium">
-                Untuk mematuhi regulasi privasi internal, nama penghuni, nomor rumah warga, rincian pembayaran masing-masing kartu iuran, serta riwayat detail tunggakan warga di setiap alamat hanya merupakan konsumsi internal pengurus/petugas yang dapat diakses setelah melakukan otentikasi log masuk admin GHR.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onLogin}
-            className="w-full md:w-auto shrink-0 bg-amber-800 text-white px-6 py-3 rounded-xl hover:bg-amber-900 text-xs font-bold transition-all flex items-center justify-center gap-2"
-          >
-            <LogIn className="w-4 h-4" />
-            Buka Konsol Pengurus
-          </button>
-        </section>
+
 
       </main>
 
       {/* Footer */}
       <footer className="border-t border-[#E5E5DA] bg-white py-10 text-center text-xs text-[#A3A375] space-y-2 mt-12">
-        <p className="font-bold flex items-center justify-center gap-1.5">
-          <CreditCard className="w-4 h-4 text-[#A3A375]" />
+        <p className="font-bold flex items-center justify-center gap-1.5 text-[#3A3A2A]">
+          <svg 
+            viewBox="0 0 100 100" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="10" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            className="w-4 h-4 text-[#FA3E3E]"
+          >
+            <line x1="16" y1="75" x2="84" y2="75" />
+            <path d="M 24 75 L 24 55 A 8 8 0 0 1 32 47 L 42 47 L 42 75" />
+            <path d="M 42 75 L 42 34 A 8 8 0 0 1 50 26 A 8 8 0 0 1 58 34 L 58 75" />
+            <path d="M 58 75 L 58 47 L 68 47 A 8 8 0 0 1 76 55 L 76 75" />
+          </svg>
           <span>Keuangan Warga GHR © 2026. Seluruh hak cipta dilindungi.</span>
         </p>
         <p className="text-[10px] text-[#A3A375]/80 font-medium">

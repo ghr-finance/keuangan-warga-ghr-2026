@@ -1194,8 +1194,21 @@ export default function App() {
         <div className="flex flex-col h-full">
           <div className="p-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#A3A375] rounded-xl flex items-center justify-center shadow-lg">
-                <CreditCard className="w-6 h-6 text-[#F5F5F0]" />
+              <div className="w-10 h-10 bg-[#FA3E3E] rounded-xl flex items-center justify-center shadow-lg shadow-red-500/10">
+                <svg 
+                  viewBox="0 0 100 100" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="8" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className="w-6 h-6 text-white"
+                >
+                  <line x1="16" y1="75" x2="84" y2="75" />
+                  <path d="M 24 75 L 24 55 A 8 8 0 0 1 32 47 L 42 47 L 42 75" />
+                  <path d="M 42 75 L 42 34 A 8 8 0 0 1 50 26 A 8 8 0 0 1 58 34 L 58 75" />
+                  <path d="M 58 75 L 58 47 L 68 47 A 8 8 0 0 1 76 55 L 76 75" />
+                </svg>
               </div>
               <div className="leading-tight">
                 <span className="font-bold text-xl tracking-tight">Keuangan</span>
@@ -1251,8 +1264,21 @@ export default function App() {
       <main className="flex-1 overflow-auto">
         <header className="sticky top-0 z-30 bg-[#F5F5F0]/90 backdrop-blur-md border-b border-[#E5E5DA] px-6 py-5 flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#5A5A40] rounded-lg flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-[#FA3E3E] rounded-lg flex items-center justify-center shadow-sm">
+              <svg 
+                viewBox="0 0 100 100" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="8" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="w-5 h-5 text-white"
+              >
+                <line x1="16" y1="75" x2="84" y2="75" />
+                <path d="M 24 75 L 24 55 A 8 8 0 0 1 32 47 L 42 47 L 42 75" />
+                <path d="M 42 75 L 42 34 A 8 8 0 0 1 50 26 A 8 8 0 0 1 58 34 L 58 75" />
+                <path d="M 58 75 L 58 47 L 68 47 A 8 8 0 0 1 76 55 L 76 75" />
+              </svg>
             </div>
             <span className="font-serif font-bold text-xl text-[#3A3A2A]">Keuangan Warga</span>
           </div>

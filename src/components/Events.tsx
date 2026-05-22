@@ -114,11 +114,11 @@ export default function EventList() {
                 <div className="grid grid-cols-2 gap-6 bg-[#F5F5F0]/50 p-6 rounded-[24px] border border-[#E5E5DA]">
                   <div>
                     <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Target Anggaran</p>
-                    <p className="text-lg font-black text-[#3A3A2A]">{formatCurrency(event.budget)}</p>
+                    <p className="text-base font-bold font-mono text-[#3A3A2A]">{formatCurrency(event.budget)}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Realisasi</p>
-                    <p className={cn("text-lg font-black", isOverBudget ? "text-rose-600" : "text-emerald-700")}>
+                    <p className={cn("text-base font-bold font-mono", isOverBudget ? "text-rose-600" : "text-emerald-700")}>
                       {formatCurrency(actualSpending)}
                     </p>
                   </div>
@@ -141,8 +141,8 @@ export default function EventList() {
                     />
                   </div>
                   {isOverBudget && (
-                    <p className="text-[10px] text-rose-600 font-black flex items-center gap-1.5 bg-rose-50 p-2 rounded-lg">
-                      <AlertCircle className="w-3.5 h-3.5" /> OVER BUDGET: {formatCurrency(actualSpending - event.budget)}
+                    <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1.5 bg-rose-50 p-2 rounded-lg">
+                      <AlertCircle className="w-3.5 h-3.5" /> OVER BUDGET: <span className="font-mono">{formatCurrency(actualSpending - event.budget)}</span>
                     </p>
                   )}
                 </div>
@@ -171,7 +171,7 @@ export default function EventList() {
                           </p>
                         </div>
                         <p className={cn(
-                          "text-xs font-black shrink-0",
+                          "text-xs font-bold font-mono shrink-0",
                           t.tipe === 'pemasukan' ? "text-emerald-700" : "text-rose-600"
                         )}>
                           {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}

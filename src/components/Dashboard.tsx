@@ -173,6 +173,7 @@ export default function Dashboard() {
               <div className="flex items-baseline gap-1 mt-1 overflow-hidden">
                 <p className={cn(
                   "text-lg sm:text-xl xl:text-2xl font-black leading-tight truncate",
+                  !stat.label.includes('Warga') && "font-mono tracking-tight",
                   (stat.rawValue !== undefined && stat.rawValue < 0) ? "text-red-600 italic" : "text-[#3A3A2A]"
                 )}>
                   {stat.value}
@@ -181,7 +182,7 @@ export default function Dashboard() {
               {stat.label === 'Saldo Saat Ini' && (
                 <div className="flex items-center gap-1.5 mt-2 text-[10px] font-bold text-[#A3A375]">
                   <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                  <span className="truncate">Sisa 2025: {formatCurrency(saldoAwal2025)}</span>
+                  <span className="truncate">Sisa 2025: <span className="font-mono text-[10px]">{formatCurrency(saldoAwal2025)}</span></span>
                 </div>
               )}
             </div>
@@ -190,46 +191,47 @@ export default function Dashboard() {
       </div>
 
       {/* Container for RT & DKM Cards */}
+      {/* Container for RT & DKM Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
         
         {/* Special RT Summary Card */}
         <div className="bg-[#5A5A40] rounded-[32px] sm:rounded-[40px] p-6 sm:p-8 md:p-10 text-[#F5F5F0] shadow-xl shadow-[#5A5A40]/15 relative overflow-hidden flex flex-col justify-between h-full min-h-[300px]">
           <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           <div className="relative z-10 flex-1 flex flex-col justify-between gap-8">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+            <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
               <div className="min-w-0 flex-1">
                 <div className="inline-flex items-center gap-2 bg-white/10 px-3.5 py-1 rounded-full mb-3.5">
                   <Home className="w-3.5 h-3.5 text-[#A3A375]" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">Informasi Iuran Bulanan</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-[#F5F5F0]">Informasi Iuran Bulanan</span>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white">Dana Iuran RT</h2>
+                <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white leading-tight">Dana Iuran RT</h2>
                 <p className="text-[#A3A375] text-xs font-semibold mt-1 leading-relaxed">Rekapitulasi khusus dana RT yang dikelola lingkungan.</p>
               </div>
-              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto lg:self-start xl:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
                 <div className="w-8 h-8 bg-[#A3A375] rounded-lg flex items-center justify-center shrink-0">
                   <Calendar className="w-4 h-4 text-[#5A5A40]" />
                 </div>
                 <div>
                   <p className="text-[8px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Awal 2025</p>
-                  <p className="text-sm font-extrabold text-white">{formatCurrency(saldoRT2025)}</p>
+                  <p className="text-sm font-bold text-white font-mono">{formatCurrency(saldoRT2025)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/10">
-              <div className="space-y-1 overflow-hidden">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-y-4 gap-x-6 pt-6 border-t border-white/10">
+              <div className="space-y-1">
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pemasukan</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold text-emerald-400 truncate">+{formatCurrency(rtIncome2026)}</p>
+                <p className="text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-bold text-emerald-400 whitespace-nowrap font-mono">+{formatCurrency(rtIncome2026)}</p>
               </div>
-              <div className="space-y-1 overflow-hidden">
+              <div className="space-y-1">
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Pengeluaran</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold text-red-400 truncate">-{formatCurrency(rtKeluar)}</p>
+                <p className="text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-bold text-red-400 whitespace-nowrap font-mono">-{formatCurrency(rtKeluar)}</p>
               </div>
-              <div className="pl-4 border-l border-white/10 space-y-1 overflow-hidden">
+              <div className="sm:pl-4 sm:border-l lg:pl-0 lg:border-l-0 xl:pl-4 xl:border-l border-white/10 space-y-1">
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
                 <p className={cn(
-                  "text-sm sm:text-base md:text-lg font-black truncate",
-                  rtSaldo < 0 ? "text-red-400 italic font-bold" : "text-white"
+                  "text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-bold whitespace-nowrap font-mono",
+                  rtSaldo < 0 ? "text-red-400 italic" : "text-white"
                 )}>
                   {formatCurrency(rtSaldo)}
                 </p>
@@ -242,16 +244,16 @@ export default function Dashboard() {
         <div className="bg-[#47554C] rounded-[32px] sm:rounded-[40px] p-6 sm:p-8 md:p-10 text-[#F5F5F0] shadow-xl shadow-[#47554C]/15 relative overflow-hidden flex flex-col justify-between h-full min-h-[300px]">
           <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           <div className="relative z-10 flex-1 flex flex-col justify-between gap-8">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+            <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
               <div className="min-w-0 flex-1">
                 <div className="inline-flex items-center gap-2 bg-white/10 px-3.5 py-1 rounded-full mb-3.5">
                   <Moon className="w-3.5 h-3.5 text-emerald-200" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-200">Informasi Kas Masjid</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-[#F5F5F0]">Informasi Kas Masjid</span>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white">Dana Kas DKM</h2>
+                <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white leading-tight">Dana Kas DKM</h2>
                 <p className="text-[#A6B2A8] text-xs font-semibold mt-1 leading-relaxed">Dana kas mushola/masjid, infaq warga, dan operasional ibadah.</p>
               </div>
-              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto lg:self-start xl:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
                 <div className="w-8 h-8 bg-emerald-700/60 rounded-lg flex items-center justify-center shrink-0">
                   <Sparkles className="w-4 h-4 text-emerald-200" />
                 </div>
@@ -262,19 +264,19 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/10">
-              <div className="space-y-1 overflow-hidden">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-y-4 gap-x-6 pt-6 border-t border-white/10">
+              <div className="space-y-1">
                 <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest opacity-80">Pemasukan</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold text-emerald-400 truncate">+{formatCurrency(dkmIncome2026)}</p>
+                <p className="text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-bold text-emerald-400 whitespace-nowrap font-mono">+{formatCurrency(dkmIncome2026)}</p>
               </div>
-              <div className="space-y-1 overflow-hidden">
+              <div className="space-y-1">
                 <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest opacity-80">Pengeluaran</p>
-                <p className="text-sm sm:text-base md:text-lg font-bold text-red-400 truncate">-{formatCurrency(dkmKeluar)}</p>
+                <p className="text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-bold text-red-400 whitespace-nowrap font-mono">-{formatCurrency(dkmKeluar)}</p>
               </div>
-              <div className="pl-4 border-l border-white/10 space-y-1 overflow-hidden">
+              <div className="sm:pl-4 sm:border-l lg:pl-0 lg:border-l-0 xl:pl-4 xl:border-l border-white/10 space-y-1">
                 <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest opacity-80">Saldo Terbaru</p>
                 <p className={cn(
-                  "text-sm sm:text-base md:text-lg font-black truncate",
+                  "text-xs sm:text-sm md:text-base lg:text-sm xl:text-base font-semibold whitespace-nowrap font-mono",
                   dkmSaldo < 0 ? "text-red-400 italic font-bold" : "text-white"
                 )}>
                   {formatCurrency(dkmSaldo)}
@@ -357,7 +359,7 @@ export default function Dashboard() {
                 {/* Bagian Kanan: Nominal Transaksi */}
                 <div className="shrink-0 text-right pl-2">
                   <p className={cn(
-                    "text-xs sm:text-sm font-black tabular-nums whitespace-nowrap",
+                    "text-xs sm:text-sm font-bold font-mono tracking-tight whitespace-nowrap",
                     t.tipe === 'pemasukan' ? "text-emerald-700" : "text-red-700"
                   )}>
                     {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}

@@ -422,7 +422,7 @@ export default function PetugasList() {
                       <div>
                         <p className="font-bold text-amber-900 text-sm">Informasi Kasbon 2025</p>
                         <p className="text-amber-700 text-xs mt-1 leading-relaxed">
-                          Petugas ini memiliki sisa kasbon tahun 2025 sebesar <span className="font-black underline scale-105 inline-block mx-0.5">{formatCurrency(selectedPetugasForDetail.sisaKasbon2025)}</span> yang belum terlunasi.
+                          Petugas ini memiliki sisa kasbon tahun 2025 sebesar <span className="font-bold font-mono underline scale-105 inline-block mx-0.5">{formatCurrency(selectedPetugasForDetail.sisaKasbon2025)}</span> yang belum terlunasi.
                         </p>
                       </div>
                     </div>
@@ -431,7 +431,7 @@ export default function PetugasList() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white p-6 rounded-3xl border border-[#E5E5DA] shadow-sm">
                       <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Tanggung Jawab</p>
-                      <p className="text-lg lg:text-xl font-black text-[#5A5A40]">
+                      <p className="text-base lg:text-lg font-bold font-mono text-[#5A5A40]">
                         {formatCurrency(petugasTransactions.filter(t => 
                           t.petugasId === selectedPetugasForDetail.id || 
                           t.picName === selectedPetugasForDetail.nama ||
@@ -441,7 +441,7 @@ export default function PetugasList() {
                     </div>
                     <div className="bg-white p-6 rounded-3xl border border-[#E5E5DA] shadow-sm">
                       <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Kasbon</p>
-                      <p className="text-lg lg:text-xl font-black text-amber-600">
+                      <p className="text-base lg:text-lg font-bold font-mono text-amber-600">
                         {formatCurrency(
                           (selectedPetugasForDetail.sisaKasbon2025 || 0) + 
                           petugasTransactions.filter(t => 
@@ -502,7 +502,7 @@ export default function PetugasList() {
                                 </div>
                               </div>
                               <p className={cn(
-                                "font-black tabular-nums whitespace-nowrap",
+                                "font-bold font-mono tracking-tight whitespace-nowrap",
                                 t.tipe === 'pemasukan' ? "text-green-600" : "text-red-600"
                               )}>
                                 {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}

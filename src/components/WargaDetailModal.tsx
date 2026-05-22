@@ -332,15 +332,15 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div className="bg-white/50 p-5 rounded-3xl border border-[#8B4513]/10">
                       <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Tagihan (7x)</p>
-                      <p className="text-lg font-bold text-[#3A3A2A]">{formatCurrency(entryMacet.totalTagihan)}</p>
+                      <p className="text-lg font-bold text-[#3A3A2A] font-mono">{formatCurrency(entryMacet.totalTagihan)}</p>
                     </div>
                     <div className="bg-white/50 p-5 rounded-3xl border border-[#8B4513]/10">
                       <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Sudah Dibayar</p>
-                      <p className="text-lg font-bold text-emerald-600">{formatCurrency(entryMacet.nominalBayar)}</p>
+                      <p className="text-lg font-bold text-emerald-600 font-mono">{formatCurrency(entryMacet.nominalBayar)}</p>
                     </div>
                     <div className="bg-white/50 p-5 rounded-3xl border border-[#8B4513]/10">
                       <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Sisa Hutang</p>
-                      <p className="text-lg font-bold text-red-600">{formatCurrency(entryMacet.sisa)}</p>
+                      <p className="text-lg font-bold text-red-600 font-mono">{formatCurrency(entryMacet.sisa)}</p>
                     </div>
                   </div>
 
@@ -473,7 +473,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                             </td>
                             <td className="px-6 py-4 text-right">
                               <span className={cn(
-                                "font-bold text-sm",
+                                "font-bold text-sm font-mono tracking-tight",
                                 t.tipe === 'pemasukan' ? "text-emerald-600" : "text-[#8B4513]"
                               )}>
                                 {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}
@@ -518,13 +518,13 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-black text-[#3A3A2A]">{formatCurrency(item.amount)}</p>
+                            <p className="font-bold text-[#3A3A2A] font-mono text-sm">{formatCurrency(item.amount)}</p>
                           </div>
                         </div>
                       ))}
                       <div className="pt-6 border-t border-[#E5E5DA] mt-6 flex justify-between items-center">
                         <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Total Tagihan (Inc. Macet 2025)</p>
-                        <p className="text-2xl font-serif font-bold text-amber-600">
+                        <p className="text-xl font-bold text-amber-600 font-mono">
                           {formatCurrency(totalCurrentTunggakan + (entryMacet?.sisa || 0))}
                         </p>
                       </div>

@@ -269,7 +269,7 @@ export default function TransaksiList() {
         <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] flex items-center justify-between shadow-sm group hover:border-[#A3A375] transition-colors">
           <div>
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Pemasukan</p>
-            <p className="text-3xl font-black text-[#5A5A40]">{formatCurrency(totalMasuk)}</p>
+            <p className="text-2xl font-bold font-mono text-[#5A5A40] tracking-tight">{formatCurrency(totalMasuk)}</p>
           </div>
           <div className="w-14 h-14 bg-[#f0f9f1] rounded-[24px] flex items-center justify-center">
             <ArrowDownLeft className="text-emerald-700 w-8 h-8" />
@@ -278,7 +278,7 @@ export default function TransaksiList() {
         <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] flex items-center justify-between shadow-sm group hover:border-[#8B4513]/30 transition-colors">
           <div>
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Pengeluaran</p>
-            <p className="text-3xl font-black text-[#8B4513]">{formatCurrency(totalKeluar)}</p>
+            <p className="text-2xl font-bold font-mono text-[#8B4513] tracking-tight">{formatCurrency(totalKeluar)}</p>
           </div>
           <div className="w-14 h-14 bg-[#fff5f5] rounded-[24px] flex items-center justify-center">
             <ArrowUpRight className="text-[#8B4513] w-8 h-8" />
@@ -414,7 +414,7 @@ export default function TransaksiList() {
               </div>
                 <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6">
                   <p className={cn(
-                    "text-xl font-black tabular-nums",
+                    "text-base sm:text-lg font-bold font-mono tracking-tight",
                     t.tipe === 'pemasukan' ? "text-[#5A5A40]" : "text-[#8B4513]"
                   )}>
                     {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}

@@ -158,7 +158,7 @@ export default function Laporan() {
       body: monthSummaryData,
       theme: 'striped',
       headStyles: { fillColor: [90, 90, 64] }, // #5A5A40
-      styles: { fontSize: 10, cellPadding: 5 },
+      styles: { fontSize: 10, cellPadding: 2.5 },
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 1) {
           const text = data.cell.text[0];
@@ -184,7 +184,7 @@ export default function Laporan() {
       body: cumulativeSummaryData,
       theme: 'striped',
       headStyles: { fillColor: [163, 163, 117] }, // #A3A375
-      styles: { fontSize: 10, cellPadding: 5 },
+      styles: { fontSize: 10, cellPadding: 2.5 },
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 1) {
           const text = data.cell.text[0];
@@ -208,7 +208,7 @@ export default function Laporan() {
       body: stakeholderSummaryData,
       theme: 'striped',
       headStyles: { fillColor: [74, 85, 78] }, // #4A554E (dark sage)
-      styles: { fontSize: 9, cellPadding: 5 },
+      styles: { fontSize: 9, cellPadding: 2.5 },
       columnStyles: {
         1: { halign: 'right' },
         2: { halign: 'right' },
@@ -357,16 +357,16 @@ export default function Laporan() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pemasukan</p>
-          <p className="text-xl sm:text-2xl font-black text-[#5A5A40] truncate" title={formatCurrency(totalMasuk)}>{formatCurrency(totalMasuk)}</p>
+          <p className="text-base sm:text-lg font-bold font-mono text-[#5A5A40] truncate" title={formatCurrency(totalMasuk)}>{formatCurrency(totalMasuk)}</p>
         </div>
         <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pengeluaran</p>
-          <p className="text-xl sm:text-2xl font-black text-[#8B4513] truncate" title={formatCurrency(totalKeluar)}>{formatCurrency(totalKeluar)}</p>
+          <p className="text-base sm:text-lg font-bold font-mono text-[#8B4513] truncate" title={formatCurrency(totalKeluar)}>{formatCurrency(totalKeluar)}</p>
         </div>
         <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Surplus Bersih</p>
           <p className={cn(
-            "text-xl sm:text-2xl font-black truncate", 
+            "text-base sm:text-lg font-bold font-mono truncate", 
             surplus < 0 ? "text-red-600 italic" : "text-[#5A5A40]"
           )} title={formatCurrency(surplus)}>
             {formatCurrency(surplus)}
@@ -405,8 +405,8 @@ export default function Laporan() {
                 <div className="text-right shrink-0">
                   <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Akhir Periode</p>
                   <p className={cn(
-                    "text-lg font-black tabular-nums mt-0.5",
-                    rtCumulativeSaldo < 0 ? "text-red-650 font-bold italic" : "text-[#5A5A40]"
+                    "text-base font-bold font-mono mt-0.5",
+                    rtCumulativeSaldo < 0 ? "text-red-600 font-bold italic" : "text-[#5A5A40]"
                   )}>
                     {formatCurrency(rtCumulativeSaldo)}
                   </p>
@@ -414,19 +414,19 @@ export default function Laporan() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#5A5A40]/10 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-3 gap-x-2 pt-4 border-t border-[#5A5A40]/10 text-xs">
               <div>
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Masuk (Bulan Ini)</p>
-                <p className="font-bold text-emerald-700 mt-1">+{formatCurrency(rtMonthMasuk)}</p>
+                <p className="font-bold text-emerald-700 mt-1 whitespace-nowrap font-mono">+{formatCurrency(rtMonthMasuk)}</p>
               </div>
               <div>
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Keluar (Bulan Ini)</p>
-                <p className="font-bold text-red-700 mt-1">-{formatCurrency(rtMonthKeluar)}</p>
+                <p className="font-bold text-red-700 mt-1 whitespace-nowrap font-mono">-{formatCurrency(rtMonthKeluar)}</p>
               </div>
-              <div className="pl-3 border-l border-[#5A5A40]/10">
+              <div className="sm:pl-3 sm:border-l border-[#5A5A40]/10">
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Surplus (Bulan Ini)</p>
                 <p className={cn(
-                  "font-black mt-1",
+                  "font-bold mt-1 whitespace-nowrap font-mono",
                   rtMonthSurplus < 0 ? "text-red-700 italic" : "text-[#5A5A40]"
                 )}>
                   {formatCurrency(rtMonthSurplus)}
@@ -451,8 +451,8 @@ export default function Laporan() {
                 <div className="text-right shrink-0">
                   <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Akhir Periode</p>
                   <p className={cn(
-                    "text-lg font-black tabular-nums mt-0.5",
-                    dkmCumulativeSaldo < 0 ? "text-red-650 font-bold italic" : "text-[#47554C]"
+                    "text-base font-bold font-mono mt-0.5",
+                    dkmCumulativeSaldo < 0 ? "text-red-600 font-bold italic" : "text-[#47554C]"
                   )}>
                     {formatCurrency(dkmCumulativeSaldo)}
                   </p>
@@ -460,19 +460,19 @@ export default function Laporan() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#47554C]/10 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-3 gap-x-2 pt-4 border-t border-[#47554C]/10 text-xs">
               <div>
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Masuk (Bulan Ini)</p>
-                <p className="font-bold text-emerald-700 mt-1">+{formatCurrency(dkmMonthMasuk)}</p>
+                <p className="font-bold text-emerald-700 mt-1 whitespace-nowrap font-mono">+{formatCurrency(dkmMonthMasuk)}</p>
               </div>
               <div>
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Keluar (Bulan Ini)</p>
-                <p className="font-bold text-red-700 mt-1">-{formatCurrency(dkmMonthKeluar)}</p>
+                <p className="font-bold text-red-700 mt-1 whitespace-nowrap font-mono">-{formatCurrency(dkmMonthKeluar)}</p>
               </div>
-              <div className="pl-3 border-l border-[#47554C]/10">
+              <div className="sm:pl-3 sm:border-l border-[#47554C]/10">
                 <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-wider">Surplus (Bulan Ini)</p>
                 <p className={cn(
-                  "font-black mt-1",
+                  "font-bold mt-1 whitespace-nowrap font-mono",
                   dkmMonthSurplus < 0 ? "text-red-700 italic" : "text-[#47554C]"
                 )}>
                   {formatCurrency(dkmMonthSurplus)}
@@ -498,26 +498,26 @@ export default function Laporan() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Saldo Awal (Carryforward 2025)</p>
-            <p className="text-base sm:text-lg font-extrabold text-[#3A3A2A]">{formatCurrency(carryforwardBal)}</p>
+            <p className="text-sm sm:text-base font-bold text-[#3A3A2A] font-mono">{formatCurrency(carryforwardBal)}</p>
             <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum Wilayah (Rp 83.268) akhir tahun 2025.</p>
           </div>
           
           <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Pemasukan 2026</p>
-            <p className="text-base sm:text-lg font-extrabold text-emerald-700">+{formatCurrency(cumTotalMasuk)}</p>
+            <p className="text-sm sm:text-base font-bold text-emerald-700 font-mono">+{formatCurrency(cumTotalMasuk)}</p>
             <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Akumulasi iuran, THR, dan kegiatan yang masuk pada tahun 2026.</p>
           </div>
           
           <div className="bg-[#F5F5F0]/50 p-5 rounded-2xl border border-[#E5E5DA]/40">
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Pengeluaran 2026</p>
-            <p className="text-base sm:text-lg font-extrabold text-red-700">-{formatCurrency(cumTotalKeluar)}</p>
+            <p className="text-sm sm:text-base font-bold text-red-700 font-mono">-{formatCurrency(cumTotalKeluar)}</p>
             <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Total dana keluar untuk gaji petugas, operasional, &amp; bukber.</p>
           </div>
           
           <div className="bg-[#5A5A40]/5 p-5 rounded-2xl border border-[#5A5A40]/15">
             <p className="text-[10px] font-black text-[#5A5A40] uppercase tracking-widest mb-1">Saldo Kas Akhir</p>
             <p className={cn(
-              "text-base sm:text-lg font-black",
+              "text-sm sm:text-base font-bold font-mono",
               finalSaldoAkhir < 0 ? "text-red-600 italic" : "text-[#3A3A2A]"
             )}>{formatCurrency(finalSaldoAkhir)}</p>
             <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Dipadukan dengan Carryforward 2025 (Sama persis dengan Dashboard).</p>
@@ -545,7 +545,7 @@ export default function Laporan() {
                       )} />
                       <span className="text-sm font-bold text-[#4A4A3A]">{k.nama}</span>
                     </div>
-                    <span className="text-sm font-black text-[#3A3A2A]">{formatCurrency(k.amount)}</span>
+                    <span className="text-sm font-bold text-[#3A3A2A] font-mono text-[13px]">{formatCurrency(k.amount)}</span>
                   </div>
                   <div className="h-2 w-full bg-[#F5F5F0] rounded-full overflow-hidden shadow-inner">
                     <div 
@@ -583,7 +583,7 @@ export default function Laporan() {
                 </div>
                 <div className="text-right">
                   <p className={cn(
-                    "text-sm font-black tabular-nums",
+                    "text-sm font-bold font-mono tracking-tight",
                     t.tipe === 'pemasukan' ? "text-[#5A5A40]" : "text-[#8B4513]"
                   )}>
                     {t.tipe === 'pemasukan' ? '+' : '-'} {formatCurrency(t.jumlah)}

@@ -230,7 +230,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
                                 </p>
                               </div>
                             </div>
-                            <p className="font-black text-[#3A3A2A]">{formatCurrency(item.amount)}</p>
+                            <p className="font-bold text-[#3A3A2A] font-mono text-sm">{formatCurrency(item.amount)}</p>
                           </div>
                         );
                       })
@@ -262,7 +262,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
                     </div>
                     <div className="bg-[#5A5A40] p-6 rounded-3xl flex flex-col justify-center items-end text-white shadow-lg">
                       <p className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">Total Bayar</p>
-                      <p className="text-2xl font-serif font-bold">{formatCurrency(totalAmount)}</p>
+                      <p className="text-xl font-bold font-mono tracking-tight">{formatCurrency(totalAmount)}</p>
                     </div>
                   </div>
                 </motion.div>

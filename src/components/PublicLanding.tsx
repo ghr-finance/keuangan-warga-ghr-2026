@@ -227,7 +227,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
             Portal Transparansi Keuangan Warga GHR
           </h1>
           <p className="text-[#5A5A40] text-sm sm:text-base font-medium leading-relaxed max-w-2xl mx-auto">
-            Selamat datang di layanan keterbukaan data <strong className="font-black">keuangan</strong> sosial <strong className="font-black">warga</strong> lingkungan Green Hills Residency (<strong className="font-black">GHR</strong>). Di sini, Anda dapat memantau realisasi anggaran, iuran masuk, biaya operasional pemeliharaan lingkungan, serta total saldo kas secara real-time.
+            Selamat datang di layanan keterbukaan data <strong className="font-black">keuangan</strong> sosial <strong className="font-black">warga</strong> lingkungan Golden Hill Residence (<strong className="font-black">GHR</strong>). Di sini, Anda dapat memantau realisasi anggaran, iuran masuk, biaya operasional pemeliharaan lingkungan, serta total saldo kas secara real-time.
           </p>
         </section>
 
@@ -257,25 +257,25 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
                   <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5">Saldo Awal (Carryforward 2025)</p>
-                  <p className="text-lg font-extrabold text-[#3A3A2A]">{formatCurrency(carryforwardBal)}</p>
+                  <p className="text-base font-bold text-[#3A3A2A] font-mono">{formatCurrency(carryforwardBal)}</p>
                   <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum &amp; sisa iuran warga akhir tahun 2025.</p>
                 </div>
 
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
                   <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pemasukan 2026</p>
-                  <p className="text-lg font-extrabold text-emerald-700">+{formatCurrency(cumTotalMasuk)}</p>
+                  <p className="text-base font-bold text-emerald-700 font-mono">+{formatCurrency(cumTotalMasuk)}</p>
                   <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Akumulasi seluruh iuran masuk, THR, dan donasi kegiatan warga.</p>
                 </div>
 
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
                   <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pengeluaran 2026</p>
-                  <p className="text-lg font-extrabold text-red-700">-{formatCurrency(cumTotalKeluar)}</p>
+                  <p className="text-base font-bold text-red-700 font-mono">-{formatCurrency(cumTotalKeluar)}</p>
                   <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Alokasi pembayaran gaji petugas, perbendaharaan, &amp; pemeliharaan.</p>
                 </div>
 
                 <div className="bg-[#5A5A40]/5 p-5 rounded-2xl border border-[#5A5A40]/15">
                   <p className="text-[10px] font-black text-[#5A5A40] uppercase tracking-widest mb-1.5 font-bold">Saldo Kas Akhir GHR</p>
-                  <p className="text-xl font-black text-[#3A3A2A]">{formatCurrency(finalSaldoAkhir)}</p>
+                  <p className="text-lg font-extrabold text-[#3A3A2A] font-mono">{formatCurrency(finalSaldoAkhir)}</p>
                   <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa saldo saat ini yang dipegang di kas warga secara riil.</p>
                 </div>
               </div>
@@ -288,32 +288,34 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
               <div className="bg-[#5A5A40] rounded-[32px] p-6 sm:p-8 text-[#F5F5F0] shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div className="absolute right-0 top-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 <div className="relative z-10 space-y-6">
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                     <div className="space-y-1">
                       <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full">
                         <Home className="w-3.5 h-3.5 text-[#A3A375]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-[#A3A375]">Fokus Dana Warga</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[#F5F5F0]">Fokus Dana Warga</span>
                       </div>
-                      <h4 className="text-xl font-serif font-bold text-white">Kas Iuran Bulanan RT</h4>
+                      <h4 className="text-xl font-serif font-bold text-white leading-tight">Kas Iuran Bulanan RT</h4>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[8px] font-bold text-[#A3A375] block uppercase tracking-wider">Saldo Awal 2025</span>
-                      <span className="text-sm font-extrabold text-white">{formatCurrency(saldoRT2025)}</span>
+                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto lg:self-start xl:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
+                      <div>
+                        <span className="text-[8px] font-bold text-[#A3A375] block uppercase tracking-wider">Saldo Awal 2025</span>
+                        <span className="text-sm font-bold text-white font-mono">{formatCurrency(saldoRT2025)}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-y-4 gap-x-3 pt-4 border-t border-white/10">
                     <div>
                       <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest leading-none">Pemasukan 2026</p>
-                      <p className="text-base font-extrabold text-[#74E39A] mt-1">+{formatCurrency(rtIncome2026)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-[#74E39A] mt-1 whitespace-nowrap font-mono">+{formatCurrency(rtIncome2026)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest leading-none">Pengeluaran</p>
-                      <p className="text-base font-extrabold text-red-300 mt-1">-{formatCurrency(rtKeluar)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-red-300 mt-1 whitespace-nowrap font-mono">-{formatCurrency(rtKeluar)}</p>
                     </div>
-                    <div className="pl-3 border-l border-white/10">
+                    <div className="sm:pl-3 sm:border-l lg:pl-0 lg:border-l-0 xl:pl-3 xl:border-l border-white/10">
                       <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest leading-none">Saldo Akhir RT</p>
-                      <p className="text-base font-black text-white mt-1">{formatCurrency(rtSaldo)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-white mt-1 whitespace-nowrap font-mono">{formatCurrency(rtSaldo)}</p>
                     </div>
                   </div>
                 </div>
@@ -323,32 +325,34 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
               <div className="bg-[#47554C] rounded-[32px] p-6 sm:p-8 text-[#F5F5F0] shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div className="absolute right-0 top-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 <div className="relative z-10 space-y-6">
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                     <div className="space-y-1">
                       <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full">
                         <Moon className="w-3.5 h-3.5 text-emerald-200" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-[#95C2A5]">Fokus Keagamaan</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[#F5F5F0]">Fokus Keagamaan</span>
                       </div>
-                      <h4 className="text-xl font-serif font-bold text-white">Kas Mushola DKM</h4>
+                      <h4 className="text-xl font-serif font-bold text-white leading-tight">Kas Mushola DKM</h4>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[8px] font-bold text-[#A6B2A8] block uppercase tracking-wider">Status Masjid</span>
-                      <span className="text-xs font-bold text-emerald-300 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">Terbuka &amp; Aktif</span>
+                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto lg:self-start xl:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
+                      <div>
+                        <span className="text-[8px] font-bold text-[#A6B2A8] block uppercase tracking-wider">Status Masjid</span>
+                        <span className="text-xs font-bold text-emerald-300 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">Terbuka &amp; Aktif</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-y-4 gap-x-3 pt-4 border-t border-white/10">
                     <div>
                       <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest leading-none">Pemasukan 2026</p>
-                      <p className="text-base font-extrabold text-[#74E39A] mt-1">+{formatCurrency(dkmIncome2026)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-[#74E39A] mt-1 whitespace-nowrap font-mono">+{formatCurrency(dkmIncome2026)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest leading-none">Pengeluaran</p>
-                      <p className="text-base font-extrabold text-red-300 mt-1">-{formatCurrency(dkmKeluar)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-red-300 mt-1 whitespace-nowrap font-mono">-{formatCurrency(dkmKeluar)}</p>
                     </div>
-                    <div className="pl-3 border-l border-white/10">
+                    <div className="sm:pl-3 sm:border-l lg:pl-0 lg:border-l-0 xl:pl-3 xl:border-l border-white/10">
                       <p className="text-[9px] font-black text-[#A6B2A8] uppercase tracking-widest leading-none">Saldo DKM</p>
-                      <p className="text-base font-black text-white mt-1">{formatCurrency(dkmSaldo)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-white mt-1 whitespace-nowrap font-mono">{formatCurrency(dkmSaldo)}</p>
                     </div>
                   </div>
                 </div>
@@ -405,7 +409,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                         <div key={cat.id} className="space-y-1">
                           <div className="flex justify-between text-xs font-semibold">
                             <span className="text-[#3A3A2A] truncate max-w-[150px]">{cat.nama}</span>
-                            <span className="text-[#5A5A40] shrink-0">{formatCurrency(cat.amount)}</span>
+                            <span className="text-[#5A5A40] shrink-0 font-mono text-[11px]">{formatCurrency(cat.amount)}</span>
                           </div>
                           <div className="w-full bg-[#F5F5F0] h-2 rounded-full overflow-hidden">
                             <div 
@@ -418,10 +422,6 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                     })
                   )}
                 </div>
-
-                <div className="text-[10px] text-center text-[#A3A375] font-sans bg-[#F5F5F0]/50 py-2.5 px-4 rounded-xl border border-[#E5E5DA]/30">
-                  Data iuran individu dan identitas warga aman terlindungi dari publik.
-                </div>
               </div>
             </section>
 
@@ -429,10 +429,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
             {events.length > 0 && (
               <section className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-6 sm:p-8 space-y-6">
                 <div>
-                  <h4 className="text-base sm:text-lg font-bold text-[#3A3A2A]">Anggaran Kegiatan Warga</h4>
-                  <p className="text-xs text-[#A3A375] font-medium leading-normal mt-1">
-                    Status kelayakan dana dan anggaran untuk kegiatan-kegiatan bergotong-royong GHR.
-                  </p>
+                  <h4 className="text-base sm:text-lg font-bold text-[#3A3A2A]">Kegiatan Dan Anggaran</h4>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -446,7 +443,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                       <div key={event.id} className="relative bg-[#F5F5F0]/30 border border-[#E5E5DA]/50 rounded-2xl p-5 space-y-4 hover:border-[#A3A375]/50 transition-colors">
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#A3A375]">KEGIATAN WARGA</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#A3A375]">KEGIATAN</span>
                             <h5 className="font-bold text-sm text-[#3A3A2A] mt-0.5">{event.nama}</h5>
                           </div>
                           <span className={cn(
@@ -460,11 +457,11 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-[#A3A375] font-sans">Realisasi Pengeluaran:</span>
-                            <span className="font-extrabold text-[#3A3A2A]">{formatCurrency(realisasi)}</span>
+                            <span className="font-extrabold text-[#3A3A2A] font-mono text-[11px]">{formatCurrency(realisasi)}</span>
                           </div>
                           <div className="flex justify-between text-[11px] text-[#A3A375] font-medium">
                             <span>Budget Target:</span>
-                            <span>{formatCurrency(event.budget || 0)}</span>
+                            <span className="font-mono text-[10px]">{formatCurrency(event.budget || 0)}</span>
                           </div>
                           {event.budget && event.budget > 0 ? (
                             <div className="w-full bg-[#E5E5DA]/50 h-1.5 rounded-full overflow-hidden mt-1">
@@ -505,7 +502,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
           <span>Keuangan Warga GHR © 2026. Seluruh hak cipta dilindungi.</span>
         </p>
         <p className="text-[10px] text-[#A3A375]/80 font-medium">
-          Dikelola secara mandiri oleh pengurus perbendaharaan warga Green Hills Residency (GHR).
+          Dikelola secara mandiri oleh pengurus perbendaharaan warga Golden Hill Residence (GHR).
         </p>
       </footer>
     </div>

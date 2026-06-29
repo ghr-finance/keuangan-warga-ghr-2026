@@ -7,7 +7,7 @@ import apiRoutes from "./src/server/routes";
 
 async function startServer() {
   const app = express();
-  const PORT = 9922;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 9922;
 
   // Body parsing middleware
   app.use(express.json({ limit: '50mb' }));

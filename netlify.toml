@@ -2,11 +2,16 @@
   command = "npm run build"
   publish = "dist"
 
+# Proxy semua panggilan /api/* ke backend Render
+# PENTING: Ganti URL di bawah ini dengan URL Render Anda yang sebenarnya
 [[redirects]]
   from = "/api/*"
-  to = "https://your-backend-url.com/api/:splat"
+  to = "https://keuangan-warga-ghr.onrender.com/api/:splat"
   status = 200
+  force = true
+  headers = {X-Forwarded-From = "netlify"}
 
+# SPA fallback — semua route lain ke index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"

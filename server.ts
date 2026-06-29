@@ -9,6 +9,24 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 9922;
 
+  // CORS — allow Netlify frontend to call this API
+  const ALLOWED_ORIGINS = [
+    'https://ghr-flow.netlify.app',
+    'http://localhost:9922',
+    'http://localhost:5173',
+  ];
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
   // Body parsing middleware
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));

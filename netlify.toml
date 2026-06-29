@@ -6,7 +6,7 @@
 # PENTING: Ganti URL di bawah ini dengan URL Render Anda yang sebenarnya
 [[redirects]]
   from = "/api/*"
-  to = "https://keuangan-warga-ghr.onrender.com/api/:splat"
+  to = "https://ghr-flow.onrender.com/api/:splat"
   status = 200
   force = true
   headers = {X-Forwarded-From = "netlify"}

@@ -5,7 +5,6 @@ import {
   TrendingUp, 
   TrendingDown, 
   Wallet, 
-  Users, 
   ArrowUpRight, 
   ArrowDownLeft,
   Calendar,
@@ -22,26 +21,26 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar
+  ResponsiveContainer
 } from 'recharts';
-import { Transaksi, Warga, Kategori } from '../types';
-import { startOfMonth, subMonths, format, isSameMonth } from 'date-fns';
+import { Transaksi, Warga, Kategori, WargaHistory } from '../types';
+import { subMonths, format, isSameMonth } from 'date-fns';
 import IuranModal from './IuranModal';
 
 export default function Dashboard() {
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
   const [warga, setWarga] = useState<Warga[]>([]);
+  const [wargaHistory, setWargaHistory] = useState<WargaHistory[]>([]);
   const [isIuranModalOpen, setIsIuranModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubT = dbService.subscribe('transaksi', setTransaksi);
     const unsubW = dbService.subscribe('warga', setWarga);
+    const unsubWH = dbService.subscribe('warga_history', setWargaHistory);
     return () => {
       unsubT();
       unsubW();
+      unsubWH();
     };
   }, []);
 
@@ -292,13 +291,14 @@ export default function Dashboard() {
         isOpen={isIuranModalOpen}
         onClose={() => setIsIuranModalOpen(false)}
         wargaList={warga}
+        wargaHistory={wargaHistory}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 sm:gap-8">
         <div className="xl:col-span-3 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] h-fit min-w-0 overflow-hidden">
           <h3 className="text-lg sm:text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas</h3>
           <div className="h-[280px] sm:h-[320px] w-full min-w-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Warga, Transaksi, Kategori, TunggakanMacet } from '../types';
-import { X, History, AlertCircle, CheckCircle2, Calendar, ArrowUpRight, Clock, User, Home, Phone, Printer, AlertTriangle, Calculator, Save, Tag } from 'lucide-react';
-import { cn, formatCurrency, formatDate, getMonthlyFee, resolveWargaForDate } from '../lib/utils';
+import { X, History, AlertCircle, CheckCircle2, Calendar, ArrowUpRight, Clock, Home, Phone, Printer, AlertTriangle, Calculator, Save, Tag } from 'lucide-react';
+import { cn, formatCurrency, formatDate } from '../lib/utils';
 import { calculateArrears } from '../lib/arrears';
-import { format, startOfMonth, subMonths, isAfter, parse, addMonths, isBefore, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { dbService } from '../services/db';
 import jsPDF from 'jspdf';
@@ -16,9 +16,11 @@ interface WargaDetailModalProps {
   transaksi: Transaksi[];
   kategori: Kategori[];
   tunggakanMacetList: TunggakanMacet[];
+  wargaHistory: import('../types').WargaHistory[];
+  allWarga: Warga[];
 }
 
-export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, kategori, tunggakanMacetList }: WargaDetailModalProps) {
+export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, kategori, tunggakanMacetList, wargaHistory, allWarga }: WargaDetailModalProps) {
   const [payAmount, setPayAmount] = React.useState<string>('');
   const [payDate, setPayDate] = React.useState<string>(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
   const [isUpdating, setIsUpdating] = React.useState(false);
@@ -38,7 +40,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     // Duplicate check: check if a payment for "Tunggakan Macet 2025" with same amount was added on same day
     const sameDay = new Date(submissionDate).setHours(0,0,0,0);
     const isDuplicate = transaksi.some(t => {
-      const transDay = new Date(t.tanggal).setHours(0,0,0,0);
+      const transDay = new Date(typeof t.tanggal === 'string' && !isNaN(Number(t.tanggal)) ? Number(t.tanggal) : t.tanggal).setHours(0,0,0,0);
       return t.wargaId === warga.id && 
              t.jumlah === amount && 
              t.keterangan.includes('Tunggakan Macet 2025') &&
@@ -63,8 +65,8 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
       });
 
       // Add a transaction record for this payment
-      const catIuran = kategori.find(k => k.nama.toLowerCase().includes('iuran bulanan') && k.tipe === 'pemasukan');
-      const catName = catIuran?.nama || 'Iuran Bulanan';
+      const catIuran = kategori.find(k => (k.nama.toLowerCase().includes('iuran bulanan') || k.nama.toLowerCase() === 'ipl') && k.tipe === 'pemasukan');
+      const catName = catIuran?.nama || 'IPL';
       
       await dbService.add('transaksi', {
         tanggal: submissionDate,
@@ -92,7 +94,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     .sort((a, b) => b.tanggal - a.tanggal);
 
   // Calculate Arrears (Tunggakan)
-  const arrearsItems = calculateArrears(warga, transaksi, kategori);
+  const arrearsItems = calculateArrears(warga, transaksi, kategori, wargaHistory, allWarga);
 
   const totalCurrentTunggakan = arrearsItems.reduce((acc, item) => acc + item.amount, 0);
 
@@ -167,7 +169,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
     
     const tableData = wargaTransaksiBase.map(t => [
       formatDate(t.tanggal),
-      t.keterangan + ((warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK') ? ` (Atas Nama: ${resolveWargaForDate(warga, t.tanggal)?.nama})` : ''),
+      t.keterangan,
       `+ ${formatCurrency(t.jumlah)}`
     ]);
 
@@ -255,9 +257,15 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   </div>
                   <span className={cn(
                     "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
-                    warga.statusHuni === 'Menghuni' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                    (warga.role || 'Pemilik') === 'Penyewa' ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
                   )}>
-                    {warga.statusHuni} ({warga.status})
+                    {warga.role || 'Pemilik'}
+                  </span>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
+                    warga.statusHuni === 'Menghuni' ? "bg-emerald-50 text-emerald-600" : (warga.statusHuni === 'Keluar' ? "bg-gray-100 text-gray-500 border border-gray-200" : "bg-amber-50 text-amber-600")
+                  )}>
+                    {warga.statusHuni === 'Keluar' ? 'Pindah/Keluar (Arsip)' : `${warga.statusHuni} (${warga.status})`}
                   </span>
                 </div>
               </div>
@@ -302,7 +310,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                 <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Warga Sejak</p>
                 <div className="flex items-center gap-3">
                   <Clock className="w-6 h-6 text-[#A3A375]" />
-                  <span className="font-bold text-[#3A3A2A]">{format(new Date(warga.createdAt), 'dd MMMM yyyy')}</span>
+                  <span className="font-bold text-[#3A3A2A]">{format(new Date(typeof warga.createdAt === 'string' && !isNaN(Number(warga.createdAt)) ? Number(warga.createdAt) : warga.createdAt), 'dd MMMM yyyy')}</span>
                 </div>
               </div>
             </div>
@@ -410,30 +418,45 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                 </div>
               )}
 
-              {/* Rentang Histori Perubahan Kepenghunian (No Rumah 14) */}
-              {(warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK') && (
+              {/* Timeline Histori Status Warga */}
+              {wargaHistory.filter(h => h.wargaId === warga.id).length > 0 && (
                 <div className="lg:col-span-2 bg-[#A3A375]/10 border border-[#A3A375]/30 rounded-[32px] p-6 sm:p-8 space-y-6">
                   <div className="flex items-center gap-3">
                     <History className="w-5 h-5 text-[#5A5A40]" />
-                    <h4 className="text-lg font-bold text-[#3A3A2A]">Rentang Histori Perubahan Kepenghunian</h4>
+                    <h4 className="text-lg font-bold text-[#3A3A2A]">Rentang Histori Perubahan Status & Kepenghunian</h4>
                   </div>
                   <div className="relative border-l-2 border-[#A3A375]/30 ml-3 pl-6 space-y-6">
-                    <div className="relative">
-                      <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#F5F5F0] shadow-sm animate-pulse" />
-                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Januari 2026 - 30 Maret 2026</p>
-                      <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Disewakan kepada warga: <span className="text-[#5A5A40] underline font-black">Fuad</span></h5>
-                      <p className="text-xs text-[#5A5A40] mt-1 bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
-                        Status: <span className="font-bold text-emerald-600">Menghuni (Penyewa Aktif)</span> • Semua iuran yang masuk pada rentang ini otomatis tercatat atas nama Fuad.
-                      </p>
-                    </div>
-                    <div className="relative">
-                      <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-amber-500 border-2 border-[#F5F5F0] shadow-sm" />
-                      <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">Mulai 31 Maret 2026 (Masa Sewa Selesai)</p>
-                      <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Kembali ke Pemilik Asli: <span className="text-[#5A5A40] underline font-black">Faradila</span></h5>
-                      <p className="text-xs text-[#5A5A40] mt-1 bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
-                        Status: <span className="font-bold text-amber-600">Tidak Menghuni (Pemilik Non-Aktif)</span> • Sisa iuran dan tanggung jawab dilanjutkan oleh Faradila.
-                      </p>
-                    </div>
+                    {wargaHistory
+                      .filter(h => h.wargaId === warga.id)
+                      .sort((a, b) => a.effectiveFrom - b.effectiveFrom)
+                      .map((h) => (
+                        <div key={h.id} className="relative">
+                          <div className={cn(
+                            "absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 border-[#F5F5F0] shadow-sm",
+                            h.effectiveTo == null ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                          )} />
+                          <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-wider">
+                            {formatDate(h.effectiveFrom)} {h.effectiveTo ? `- ${formatDate(h.effectiveTo)}` : '(Sekarang)'}
+                          </p>
+                          <h5 className="font-bold text-[#3A3A2A] text-sm mt-0.5">Rumah No. {h.noRumah}</h5>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className={cn(
+                              "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md",
+                              (h.role || 'Pemilik') === 'Penyewa' ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                            )}>
+                              {h.role || 'Pemilik'}
+                            </span>
+                            <p className="text-xs text-[#5A5A40] bg-white inline-block px-3 py-1.5 rounded-xl border border-[#E5E5DA]">
+                              Status: <span className={cn("font-bold", h.status === 'Aktif' ? "text-emerald-600" : (h.status === 'Pindah' ? "text-gray-500" : "text-amber-600"))}>{h.statusHuni} ({h.status})</span>
+                              {h.status !== 'Pindah' && " • Wajib Iuran"}
+                              {h.isIuranRT && h.status !== 'Pindah' && " + RT"}
+                            </p>
+                          </div>
+                          {h.keterangan && (
+                            <p className="text-xs text-[#5A5A40] italic mt-2">"{h.keterangan}"</p>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
@@ -463,11 +486,6 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                             <td className="px-6 py-4">
                               <p className="font-bold text-[#3A3A2A] text-sm flex flex-wrap items-center gap-2">
                                 {t.keterangan}
-                                {(warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK') && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#A3A375]/15 text-[#5A5A40]">
-                                    Atas Nama: {resolveWargaForDate(warga, t.tanggal)?.nama}
-                                  </span>
-                                )}
                               </p>
                               <p className="text-[10px] font-bold text-[#A3A375] uppercase tracking-tight">{formatDate(t.tanggal)}</p>
                             </td>

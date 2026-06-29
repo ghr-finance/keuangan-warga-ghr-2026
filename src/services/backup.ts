@@ -1,7 +1,5 @@
 import { dbService } from './db';
 import { format } from 'date-fns';
-import { doc, setDoc, collection, deleteDoc, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 
 export interface BackupData {
   id?: string;
@@ -63,34 +61,48 @@ export const backupService = {
 
     console.log(`Restoring backup: ${backup.label} (${backup.version})...`);
 
-    // 1. Clear current data
+    // 1. Clear current data by fetching all and deleting
     const collectionNames = ['warga', 'transaksi', 'kategori', 'events', 'tunggakan_macet', 'petugas'];
     
     for (const name of collectionNames) {
-      const q = await getDocs(collection(db, name));
-      await Promise.all(q.docs.map(d => deleteDoc(doc(db, name, d.id))));
+      const items = await dbService.getAll(name) as any[];
+      if (items && items.length > 0) {
+        // Use bulk delete via API
+        const ids = items.map(item => item.id);
+        try {
+          const token = localStorage.getItem('auth_token');
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          
+          await fetch(`/api/${name}/bulk-delete`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ ids }),
+          });
+        } catch (err) {
+          // Fallback: delete one by one
+          for (const item of items) {
+            await dbService.delete(name, item.id);
+          }
+        }
+      }
     }
 
     // 2. Restore data (Preserving IDs for associations)
-    const restorePromises: Promise<any>[] = [];
-
-    const restoreCol = (name: string, data: any[]) => {
-      data.forEach(item => {
-        const { id, ...cleanData } = item;
-        if (id) {
-          restorePromises.push(setDoc(doc(db, name, id), cleanData));
-        }
-      });
+    const restoreCol = async (name: string, data: any[]) => {
+      for (const item of data) {
+        const { ...itemData } = item;
+        await dbService.add(name, itemData);
+      }
     };
 
-    restoreCol('warga', backup.collections.warga);
-    restoreCol('transaksi', backup.collections.transaksi);
-    restoreCol('kategori', backup.collections.kategori);
-    restoreCol('events', backup.collections.events);
-    restoreCol('tunggakan_macet', backup.collections.tunggakan_macet);
-    restoreCol('petugas', backup.collections.petugas);
+    await restoreCol('warga', backup.collections.warga);
+    await restoreCol('kategori', backup.collections.kategori);
+    await restoreCol('transaksi', backup.collections.transaksi);
+    await restoreCol('events', backup.collections.events);
+    await restoreCol('tunggakan_macet', backup.collections.tunggakan_macet);
+    await restoreCol('petugas', backup.collections.petugas);
 
-    await Promise.all(restorePromises);
     console.log('Restore completed successfully.');
     
     window.location.reload();

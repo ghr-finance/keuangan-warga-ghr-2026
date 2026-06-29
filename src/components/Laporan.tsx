@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Kategori, Warga } from '../types';
-import { FileText, Download, TrendingUp, TrendingDown, ChevronRight, PieChart, Coins, Home, Moon } from 'lucide-react';
+import { Download, TrendingUp, PieChart, Coins, Home, Moon } from 'lucide-react';
 import { formatCurrency, cn, resolveWargaForDate } from '../lib/utils';
 import { format, startOfMonth, endOfMonth, isWithinInterval, startOfYear, eachMonthOfInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -238,7 +238,7 @@ export default function Laporan() {
       .sort((a, b) => b.tanggal - a.tanggal)
       .map(t => {
         const cat = kategori.find(k => k.id === t.kategoriId)?.nama || '-';
-        const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama || '-';
+        const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId))?.nama || '-';
         return [
           format(new Date(t.tanggal), 'dd/MM/yyyy'),
           t.keterangan + (wName !== '-' ? ` (${wName})` : ''),
@@ -267,7 +267,7 @@ export default function Laporan() {
         .sort((a, b) => b.tanggal - a.tanggal)
         .map(t => {
           const cat = kategori.find(k => k.id === t.kategoriId)?.nama || '-';
-          const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama || '-';
+          const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId))?.nama || '-';
           return [
             format(new Date(t.tanggal), 'dd/MM/yyyy'),
             t.keterangan + (wName !== '-' ? ` (${wName})` : ''),
@@ -297,7 +297,7 @@ export default function Laporan() {
         .sort((a, b) => b.tanggal - a.tanggal)
         .map(t => {
           const cat = kategori.find(k => k.id === t.kategoriId)?.nama || '-';
-          const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama || '-';
+          const wName = resolveWargaForDate(warga.find(w => w.id === t.wargaId))?.nama || '-';
           return [
             format(new Date(t.tanggal), 'dd/MM/yyyy'),
             t.keterangan + (wName !== '-' ? ` (${wName})` : ''),

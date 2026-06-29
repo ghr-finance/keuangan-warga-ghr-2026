@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Event, Transaksi, EventStatus, Warga } from '../types';
-import { Plus, Calendar, Target, TrendingUp, TrendingDown, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Plus, Calendar, TrendingUp, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cn, formatDate, formatCurrency, resolveWargaForDate } from '../lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -164,7 +164,7 @@ export default function EventList() {
                           <p className="text-[10px] text-[#A3A375] font-bold">
                             {t.wargaId && (
                               <span className="text-[#5A5A40] mr-1.5">
-                                {resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama} •
+                                {resolveWargaForDate(warga.find(w => w.id === t.wargaId))?.nama} •
                               </span>
                             )}
                             {formatDate(t.tanggal)}

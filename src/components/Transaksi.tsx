@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Warga, Kategori, TransactionType, Petugas, Event } from '../types';
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, Filter, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2, Edit2 } from 'lucide-react';
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2, Edit2 } from 'lucide-react';
 import { cn, formatDate, formatCurrency, resolveWargaForDate } from '../lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -51,9 +51,9 @@ export default function TransaksiList() {
 
   const selectedCategory = kategori.find(k => k.id === formData.kategoriId);
   const isKegiatanCategory = selectedCategory?.nama.toLowerCase().includes('kegiatan');
-  const isIuranBulanan = selectedCategory?.nama === 'Iuran Bulanan';
+  const isIuranBulanan = selectedCategory?.nama === 'Iuran Bulanan' || selectedCategory?.nama === 'IPL';
 
-  const selectedWarga = resolveWargaForDate(warga.find(w => w.id === formData.wargaId), formData.tanggal);
+  const selectedWarga = resolveWargaForDate(warga.find(w => w.id === formData.wargaId));
   const isWargaMenghuni = selectedWarga?.statusHuni === 'Menghuni';
   const displayBaseAmountForReference = isWargaMenghuni ? 200000 : 175000;
 
@@ -193,7 +193,7 @@ export default function TransaksiList() {
     // Try to guess selectedBaseAmount
     const possibleBases = [200000, 180000, 175000, 155000];
     const cat = kategori.find(k => k.id === t.kategoriId);
-    if (cat?.nama === 'Iuran Bulanan') {
+    if (cat?.nama === 'Iuran Bulanan' || cat?.nama === 'IPL') {
       const foundBase = possibleBases.find(b => b === t.jumlah);
       if (foundBase) {
         setSelectedBaseAmount(foundBase);
@@ -393,7 +393,7 @@ export default function TransaksiList() {
                   {t.wargaId && (
                     <span className="flex items-center gap-2 text-[#5A5A40]">
                       <User className="w-4 h-4" /> 
-                      {resolveWargaForDate(warga.find(w => w.id === t.wargaId), t.tanggal)?.nama}
+                      {resolveWargaForDate(warga.find(w => w.id === t.wargaId))?.nama}
                     </span>
                   )}
                   <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {formatDate(t.tanggal)}</span>

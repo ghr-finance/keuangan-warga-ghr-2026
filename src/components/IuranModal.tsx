@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/db';
-import { Warga, Kategori, Transaksi } from '../types';
+import { Warga, Kategori, Transaksi, WargaHistory } from '../types';
 import { X, CreditCard, Calendar, User, Info, CheckCircle2 } from 'lucide-react';
 import { cn, formatCurrency } from '../lib/utils';
 import { calculateArrears, ArrearItem } from '../lib/arrears';
@@ -12,9 +12,10 @@ interface IuranModalProps {
   onClose: () => void;
   selectedWarga?: Warga;
   wargaList: Warga[];
+  wargaHistory: WargaHistory[];
 }
 
-export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }: IuranModalProps) {
+export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, wargaHistory }: IuranModalProps) {
   const [kategori, setKategori] = useState<Kategori[]>([]);
   const [loading, setLoading] = useState(false);
   const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
@@ -39,13 +40,14 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
     };
   }, []);
 
-  // Filter warga that have arrears
-  const wargaWithArrears = useMemo(() => {
-    return wargaList.filter(w => {
-      const arrears = calculateArrears(w, transaksi, kategori);
-      return arrears.length > 0;
-    }).sort((a,b) => a.nama.localeCompare(b.nama));
-  }, [wargaList, transaksi, kategori]);
+  // Show all warga that are isIuranWajib in the dropdown.
+  // Filtering by arrears caused the dropdown to be empty on first open
+  // because kategori/transaksi are still loading (empty []) at that point.
+  const allIuranWargaSorted = useMemo(() => {
+    return wargaList
+      .filter(w => w.isIuranWajib)
+      .sort((a, b) => parseInt(a.noRumah, 10) - parseInt(b.noRumah, 10));
+  }, [wargaList]);
 
   // Arrears for selected warga
   const currentArrears = useMemo(() => {
@@ -53,8 +55,8 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
     if (!targetId) return [];
     const w = wargaList.find(r => r.id === targetId);
     if (!w) return [];
-    return calculateArrears(w, transaksi, kategori);
-  }, [formData.wargaId, selectedWarga, transaksi, kategori, wargaList]);
+    return calculateArrears(w, transaksi, kategori, wargaHistory, wargaList);
+  }, [formData.wargaId, selectedWarga, transaksi, kategori, wargaList, wargaHistory]);
 
   // Arrear Key Generator
   const getArrearKey = (item: ArrearItem) => `${item.type}-${item.label}-${item.month || ''}`;
@@ -157,7 +159,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
             <div className="space-y-6">
               {/* Warga Selection */}
               <div>
-                <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Pilih Warga (Hanya dengan Tunggakan)</label>
+                <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-3 ml-1">Pilih Warga</label>
                 <div className="relative">
                   <select 
                     required
@@ -166,7 +168,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList }
                     onChange={(e) => setFormData({...formData, wargaId: e.target.value})}
                   >
                     <option value="">-- Pilih Warga --</option>
-                    {wargaWithArrears.map(w => (
+                    {allIuranWargaSorted.map(w => (
                       <option key={w.id} value={w.id}>{w.nama} (Rumah: {w.noRumah})</option>
                     ))}
                   </select>

@@ -13,64 +13,17 @@ export function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export function formatDate(date: number | Date) {
+export function formatDate(date: number | Date | string) {
+  const d = typeof date === 'string'
+    ? (isNaN(Number(date)) ? new Date(date) : new Date(Number(date)))
+    : date;
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(date);
+  }).format(d);
 }
 
-export function resolveWargaForDate(warga: any, timestamp: number | Date | string | undefined) {
-  if (!warga) return warga;
-  
-  const isNo14 = warga.noRumah === '14' || warga.noRumah === 14 || warga.id === 'iwGZETLlW9DTKLjgckoK' || warga.nama === 'Faradila' || warga.nama === 'Fuad';
-  if (!isNo14) return warga;
-
-  let ts = Date.now();
-  if (timestamp) {
-    if (typeof timestamp === 'number') {
-      ts = timestamp;
-    } else if (timestamp instanceof Date) {
-      ts = timestamp.getTime();
-    } else {
-      ts = new Date(timestamp).getTime();
-    }
-  } else {
-    // If no timestamp is provided, checking if we want current date representation
-    ts = Date.now();
-  }
-
-  // Batas 31 Maret 2026 00:00:00 UTC atau waktu WIB setempat
-  // Di local time/WIB: 31 Maret 2026 (Setelah 30 Maret)
-  const TRANSITION_DATE = new Date('2026-03-31T00:00:00').getTime();
-
-  if (ts < TRANSITION_DATE) {
-    return {
-      ...warga,
-      id: warga.id || 'iwGZETLlW9DTKLjgckoK',
-      noRumah: '14',
-      nama: 'Fuad',
-      statusHuni: 'Menghuni',
-      status: 'Aktif',
-      isIuranWajib: true,
-      isIuranRT: false,
-      phone: warga.phone || ''
-    };
-  } else {
-    return {
-      ...warga,
-      id: warga.id || 'iwGZETLlW9DTKLjgckoK',
-      noRumah: '14',
-      nama: 'Faradila',
-      statusHuni: 'Tidak Menghuni',
-      status: 'Non-Aktif',
-      isIuranWajib: true,
-      isIuranRT: false,
-      phone: warga.phone || ''
-    };
-  }
-}
 
 export function getMonthlyFee(monthStr: string, statusHuni: string) {
   const baseAmount = statusHuni === 'Menghuni' ? 200000 : 175000;
@@ -79,4 +32,9 @@ export function getMonthlyFee(monthStr: string, statusHuni: string) {
     return baseAmount - 20000;
   }
   return baseAmount;
+}
+
+// Fallback untuk backward compatibility dengan komponen yang belum diperbarui
+export function resolveWargaForDate(warga: any | undefined) {
+  return warga;
 }

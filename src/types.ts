@@ -1,6 +1,7 @@
 export type TransactionType = 'pemasukan' | 'pengeluaran';
-export type WargaStatus = 'Aktif' | 'Non-Aktif';
-export type StatusHuni = 'Menghuni' | 'Tidak Menghuni';
+export type WargaStatus = 'Aktif' | 'Non-Aktif' | 'Pindah';
+export type StatusHuni = 'Menghuni' | 'Tidak Menghuni' | 'Keluar';
+export type WargaRole = 'Pemilik' | 'Penyewa';
 export type EventStatus = 'Berjalan' | 'Selesai';
 
 export interface Warga {
@@ -14,6 +15,22 @@ export interface Warga {
   noRumahUpdatedAt?: number;
   isIuranWajib: boolean;
   isIuranRT: boolean;
+  role: WargaRole;
+  createdAt: number;
+}
+
+export interface WargaHistory {
+  id: string;
+  wargaId: string;
+  noRumah: string;
+  status: WargaStatus;
+  statusHuni: StatusHuni;
+  isIuranWajib: boolean;
+  isIuranRT: boolean;
+  role: WargaRole;
+  effectiveFrom: number;
+  effectiveTo?: number | null;
+  keterangan?: string;
   createdAt: number;
 }
 

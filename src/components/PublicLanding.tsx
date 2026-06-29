@@ -2,18 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { formatCurrency, cn } from '../lib/utils';
 import { 
-  TrendingUp, 
-  TrendingDown, 
   Wallet, 
-  Calendar, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
   Home, 
   Moon, 
   Sparkles, 
-  ShieldAlert, 
-  LogIn, 
-  CreditCard 
+  LogIn
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -22,11 +15,9 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  AreaChart,
-  Area
+  ResponsiveContainer
 } from 'recharts';
-import { subMonths, format, isSameMonth, endOfMonth } from 'date-fns';
+import { subMonths, format, isSameMonth } from 'date-fns';
 import { Transaksi, Kategori, Event } from '../types';
 
 export function GhrBrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
@@ -119,8 +110,6 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
   // These exclude Iuran RT and DKM transactions per stakeholder requirement
   const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
   const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
-  const saldoSemua = totalMasuk - totalKeluar;
-
   // Cumulative Year 2026 (Since Jan 2026)
   const runningYear = 2026;
   const yearStart = new Date(runningYear, 0, 1);
@@ -373,7 +362,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                 </div>
                 
                 <div className="h-64 sm:h-72 w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F5F5F0" />
                       <XAxis dataKey="name" stroke="#A3A375" fontSize={11} tickLine={false} />
@@ -402,7 +391,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                   {categorySummary.length === 0 ? (
                     <div className="text-center py-8 text-xs text-[#A3A375] font-semibold uppercase">Belum ada pengeluaran</div>
                   ) : (
-                    categorySummary.map((cat, idx) => {
+                    categorySummary.map((cat) => {
                       const maxAmount = Math.max(...categorySummary.map(c => c.amount), 1);
                       const percentage = (cat.amount / maxAmount) * 100;
                       return (

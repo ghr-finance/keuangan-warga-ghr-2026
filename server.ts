@@ -2,23 +2,37 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import cron from "node-cron";
+import { testConnection, initializeDatabase } from "./src/server/db";
+import apiRoutes from "./src/server/routes";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = 9922;
+
+  // Body parsing middleware
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true }));
+
+  // Initialize PostgreSQL connection and schema
+  const connected = await testConnection();
+  if (connected) {
+    await initializeDatabase();
+  } else {
+    console.error('WARNING: Could not connect to PostgreSQL. The app may not work correctly.');
+  }
 
   // Monthly Backup Job (Runs at 00:00 on the 1st of every month)
   cron.schedule("0 0 1 * *", () => {
     console.log("[CRON] Running monthly database backup job...");
-    // In this sandboxed environment, real automated backup is primarily handled by the client-side check 
-    // to ensure full access to Firestore via valid user sessions.
-    // However, this server job serves as the primary backend trigger point.
   });
 
   // API routes FIRST
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", database: connected ? "connected" : "disconnected" });
   });
+
+  // Mount all API routes under /api
+  app.use("/api", apiRoutes);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
@@ -30,7 +44,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

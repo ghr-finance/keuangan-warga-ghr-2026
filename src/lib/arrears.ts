@@ -1,5 +1,5 @@
 import { format, startOfMonth, addMonths, isBefore } from 'date-fns';
-import { Warga, Transaksi, Kategori } from '../types';
+import { Warga, Transaksi, Kategori, WargaHistory } from '../types';
 import { getMonthlyFee } from './utils';
 
 export interface ArrearItem {
@@ -10,113 +10,217 @@ export interface ArrearItem {
   categoryId: string;
 }
 
+/**
+ * Get the effective warga state for a given month using the warga_history table.
+ * Returns the history entry that was active during that month,
+ * or falls back to the current warga record if no history exists yet.
+ */
+export function getWargaStateForMonth(
+  warga: Warga,
+  monthStr: string, // 'yyyy-MM'
+  wargaHistory: WargaHistory[]
+): {
+  status: string;
+  statusHuni: string;
+  isIuranWajib: boolean;
+  isIuranRT: boolean;
+  role: string;
+} {
+  // Convert month string to a timestamp (start of that month)
+  const monthTs = new Date(`${monthStr}-01T00:00:00`).getTime();
+
+  const myHistory = wargaHistory
+    .filter(h => h.wargaId === warga.id)
+    .sort((a, b) => a.effectiveFrom - b.effectiveFrom);
+
+  if (myHistory.length === 0) {
+    // No history at all — use current warga state
+    // If Penyewa and month is before createdAt, set status to 'Pindah' to skip billing
+    const isPenyewaBeforeStart = (warga.role || 'Pemilik') === 'Penyewa' && 
+      monthTs < startOfMonth(new Date(Number(warga.createdAt))).getTime();
+
+    return {
+      status: isPenyewaBeforeStart ? 'Pindah' : warga.status,
+      statusHuni: warga.statusHuni,
+      isIuranWajib: warga.isIuranWajib,
+      isIuranRT: warga.isIuranRT,
+      role: warga.role || 'Pemilik',
+    };
+  }
+
+  // Find which history entry was active at the start of this month
+  const active = myHistory.find(h => {
+    const from = h.effectiveFrom;
+    const to = h.effectiveTo ?? Infinity;
+    return monthTs >= from && monthTs < to;
+  });
+
+  if (active) {
+    return {
+      status: active.status,
+      statusHuni: active.statusHuni,
+      isIuranWajib: active.isIuranWajib,
+      isIuranRT: active.isIuranRT,
+      role: active.role || 'Pemilik',
+    };
+  }
+
+  // Month is before earliest history — use the earliest entry
+  const earliest = myHistory[0];
+  if (monthTs < earliest.effectiveFrom) {
+    // If Penyewa and month is before their earliest effective history, set status to 'Pindah' to skip billing
+    const isPenyewaBeforeStart = (earliest.role || 'Pemilik') === 'Penyewa';
+
+    return {
+      status: isPenyewaBeforeStart ? 'Pindah' : earliest.status,
+      statusHuni: earliest.statusHuni,
+      isIuranWajib: earliest.isIuranWajib,
+      isIuranRT: earliest.isIuranRT,
+      role: earliest.role || 'Pemilik',
+    };
+  }
+
+  // Month is after all history entries — use the latest entry
+  const latest = myHistory[myHistory.length - 1];
+  return {
+    status: latest.status,
+    statusHuni: latest.statusHuni,
+    isIuranWajib: latest.isIuranWajib,
+    isIuranRT: latest.isIuranRT,
+    role: latest.role || 'Pemilik',
+  };
+}
+
 export function calculateArrears(
   warga: Warga,
   transaksi: Transaksi[],
-  kategori: Kategori[]
+  kategori: Kategori[],
+  wargaHistory: WargaHistory[] = [],
+  allWarga: Warga[] = []
 ): ArrearItem[] {
   const arrearsItems: ArrearItem[] = [];
-  
-  if (!warga.isIuranWajib) return [];
 
   const today = new Date();
-  const startDate = new Date(2026, 0, 1);
+  const startDate = new Date(2026, 0, 1); // Jan 2026
   const currentMonth = startOfMonth(today);
-  
+
   // 1. Iuran Bulanan & Iuran RT
-  const catIuranBulanan = kategori.find(k => k.nama === 'Iuran Bulanan' && k.tipe === 'pemasukan');
-  const catIuranRT = kategori.find(k => k.nama === 'Iuran RT' && k.tipe === 'pemasukan');
-  
-  const monthlyArrearsConfigs = [
-    { 
-      cat: catIuranBulanan, 
-      label: 'Iuran Bulanan', 
-      getAmount: (m: string, s: string) => getMonthlyFee(m, s),
-      shouldApply: () => true 
-    },
-    { 
-      cat: catIuranRT, 
-      label: 'Iuran RT', 
-      getAmount: () => 20000,
-      shouldApply: (w: Warga) => {
-        const specialNames = ['wawan', 'ali', 'zulkarnaen', 'temi'];
-        return w.isIuranRT || specialNames.some(name => w.nama.toLowerCase().includes(name));
-      }
-    }
-  ].filter(c => c.cat);
+  const catIuranBulanan = kategori.find(k => (k.nama === 'Iuran Bulanan' || k.nama === 'IPL') && k.tipe === 'pemasukan');
+  const catIuranRT = kategori.find(k => (k.nama === 'Iuran RT' || k.nama === 'RT') && k.tipe === 'pemasukan');
+
+  const specialNamesIuranRT = ['wawan', 'ali', 'zulkarnaen', 'temi'];
+
+  // Pre-filter other residents of the same house who are tenants to avoid checking all warga in the loop
+  const familyPenyewas = allWarga.filter(otherWarga => 
+    otherWarga.id !== warga.id && 
+    otherWarga.noRumah === warga.noRumah && 
+    (otherWarga.role === 'Penyewa')
+  );
 
   let checkDate = startDate;
   while (isBefore(checkDate, addMonths(currentMonth, 1))) {
     const monthStr = format(checkDate, 'yyyy-MM');
     const monthLabel = format(checkDate, 'MMMM yyyy');
-    
-    // Determine effective status for this month - use current status
-    // Flipping logic based on statusHuniUpdatedAt is often incorrect since updates happen for non-status reasons
-    let effectiveStatus = warga.statusHuni;
-    if (warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK' || warga.nama === 'Faradila' || warga.nama === 'Fuad') {
-      const boundaryDate = new Date(2026, 3, 1); // 1 April 2026 (Setelah 30 Maret)
-      if (isBefore(checkDate, boundaryDate)) {
-        effectiveStatus = 'Menghuni';
-      } else {
-        effectiveStatus = 'Tidak Menghuni';
+
+    // Get the historically accurate state of this warga for this month
+    const state = getWargaStateForMonth(warga, monthStr, wargaHistory);
+
+    // Only calculate arrears for months when warga is not 'Pindah'
+    if (state.status === 'Pindah') {
+      checkDate = addMonths(checkDate, 1);
+      continue;
+    }
+
+    // If warga is Pemilik, check if there's an active Penyewa for this house in this month
+    if (state.role === 'Pemilik' && familyPenyewas.length > 0) {
+      const activePenyewaExists = familyPenyewas.some(otherWarga => {
+        const otherState = getWargaStateForMonth(otherWarga, monthStr, wargaHistory);
+        return otherState.status !== 'Pindah';
+      });
+      if (activePenyewaExists) {
+        checkDate = addMonths(checkDate, 1);
+        continue;
       }
     }
 
-    monthlyArrearsConfigs.forEach(config => {
-      if (!config.cat || !config.shouldApply(warga)) return;
-
-      const hasPaid = transaksi.some(t => 
-        t.wargaId === warga.id && 
-        t.bulanIuran === monthStr && 
+    // --- Iuran Bulanan ---
+    if (catIuranBulanan) {
+      const hasPaid = transaksi.some(t =>
+        t.wargaId === warga.id &&
+        t.bulanIuran === monthStr &&
         t.tipe === 'pemasukan' &&
-        t.kategoriId === config.cat!.id
+        t.kategoriId === catIuranBulanan.id
       );
 
-      if (!hasPaid) {
+      if (!hasPaid && state.isIuranWajib) {
         arrearsItems.push({
           type: 'bulanan',
           month: monthStr,
-          amount: config.getAmount(monthStr, effectiveStatus),
-          label: `${config.label} - ${monthLabel}`,
-          categoryId: config.cat!.id
+          amount: getMonthlyFee(monthStr, state.statusHuni),
+          label: `Iuran Bulanan - ${monthLabel}`,
+          categoryId: catIuranBulanan.id
         });
       }
-    });
-    
+    }
+
+    // --- Iuran RT ---
+    if (catIuranRT) {
+      const isRT = state.isIuranRT || specialNamesIuranRT.some(n => warga.nama.toLowerCase().includes(n));
+      if (isRT) {
+        const hasPaidRT = transaksi.some(t =>
+          t.wargaId === warga.id &&
+          t.bulanIuran === monthStr &&
+          t.tipe === 'pemasukan' &&
+          t.kategoriId === catIuranRT.id
+        );
+
+        if (!hasPaidRT) {
+          arrearsItems.push({
+            type: 'bulanan',
+            month: monthStr,
+            amount: 20000,
+            label: `Iuran RT - ${monthLabel}`,
+            categoryId: catIuranRT.id
+          });
+        }
+      }
+    }
+
     checkDate = addMonths(checkDate, 1);
   }
 
-  // 2. THR
+  // 2. THR — use the state at the time of Lebaran 2026 (approx March 2026)
   const catTHR = kategori.find(k => k.nama.toLowerCase().includes('thr') && k.tipe === 'pemasukan');
   if (catTHR) {
-    const hasPaidTHR = transaksi.some(t => 
-      t.wargaId === warga.id && 
-      t.tipe === 'pemasukan' && 
-      t.kategoriId === catTHR.id &&
-      new Date(t.tanggal).getFullYear() === 2026
-    );
+    const thrMonthStr = '2026-03'; // Ramadan/Lebaran month
+    const stateTHR = getWargaStateForMonth(warga, thrMonthStr, wargaHistory);
 
-    if (!hasPaidTHR) {
-      let effectiveStatus = warga.statusHuni;
-      if (warga.noRumah === '14' || warga.id === 'iwGZETLlW9DTKLjgckoK' || warga.nama === 'Faradila' || warga.nama === 'Fuad') {
-        effectiveStatus = 'Menghuni';
+    if (stateTHR.status !== 'Pindah') {
+      const hasPaidTHR = transaksi.some(t =>
+        t.wargaId === warga.id &&
+        t.tipe === 'pemasukan' &&
+        t.kategoriId === catTHR.id &&
+        new Date(t.tanggal).getFullYear() === 2026
+      );
+
+      if (!hasPaidTHR) {
+        const thrAmount = stateTHR.statusHuni === 'Menghuni' ? 180000 : 155000;
+        arrearsItems.push({
+          type: 'thr',
+          amount: thrAmount,
+          label: 'Iuran THR 2026',
+          categoryId: catTHR.id
+        });
       }
-      const thrAmount = effectiveStatus === 'Menghuni' ? 180000 : 155000;
-      arrearsItems.push({
-        type: 'thr',
-        amount: thrAmount,
-        label: 'Iuran THR 2026',
-        categoryId: catTHR.id
-      });
     }
   }
 
-  // 3. Kegiatan
+  // 3. Kegiatan — always use current status (event-based, not month-based)
   const catKegiatan = kategori.find(k => k.nama.toLowerCase().includes('kegiatan') && k.tipe === 'pemasukan');
   if (catKegiatan) {
-    const otherKegiatanPayments = transaksi.filter(t => 
-      t.tipe === 'pemasukan' && 
-      t.kategoriId === catKegiatan.id && 
+    const otherKegiatanPayments = transaksi.filter(t =>
+      t.tipe === 'pemasukan' &&
+      t.kategoriId === catKegiatan.id &&
       t.wargaId && t.wargaId !== warga.id &&
       !t.keterangan.toLowerCase().includes('rapat warga') &&
       !t.keterangan.toLowerCase().includes('bukber') &&
@@ -129,10 +233,10 @@ export function calculateArrears(
 
     mandatoryKegiatanNormalized.forEach(normLabel => {
       if (!normLabel) return;
-      
-      const hasPaidThisKegiatan = transaksi.some(t => 
-        t.wargaId === warga.id && 
-        t.tipe === 'pemasukan' && 
+
+      const hasPaidThisKegiatan = transaksi.some(t =>
+        t.wargaId === warga.id &&
+        t.tipe === 'pemasukan' &&
         t.kategoriId === catKegiatan.id &&
         (cleanLabel(t.keterangan) === normLabel || cleanLabel(t.keterangan).includes(normLabel))
       );

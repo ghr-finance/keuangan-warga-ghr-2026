@@ -4,9 +4,11 @@ import { Warga, Transaksi, Kategori, TunggakanMacet, WargaHistory } from '../typ
 import { Plus, Search, MoreVertical, Phone, Home, Filter, AlertCircle, CheckCircle2, Users, X, CreditCard, DollarSign, Pencil, Eye, Trash2, History, ArrowRightLeft, ToggleLeft, ToggleRight } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import IuranModal from './IuranModal';
 import WargaDetailModal from './WargaDetailModal';
+import { calculateArrears } from '../lib/arrears';
 
 // ─── Status Update Modal ──────────────────────────────────────────────────────
 
@@ -21,13 +23,22 @@ function StatusUpdateModal({ isOpen, onClose, warga, wargaHistory }: StatusUpdat
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'status' | 'pemilik' | 'iuran'>('status');
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    noRumah: string;
+    status: 'Aktif' | 'Non-Aktif' | 'Pindah';
+    statusHuni: 'Menghuni' | 'Tidak Menghuni' | 'Keluar';
+    isIuranWajib: boolean;
+    isIuranRT: boolean;
+    role: 'Pemilik' | 'Penyewa';
+    keterangan: string;
+    effectiveFrom: string;
+  }>({
     noRumah: '',
-    status: 'Aktif' as 'Aktif' | 'Non-Aktif',
-    statusHuni: 'Menghuni' as 'Menghuni' | 'Tidak Menghuni' | 'Keluar',
+    status: 'Aktif',
+    statusHuni: 'Menghuni',
     isIuranWajib: true,
     isIuranRT: false,
-    role: 'Pemilik' as 'Pemilik' | 'Penyewa',
+    role: 'Pemilik',
     keterangan: '',
     effectiveFrom: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   });
@@ -188,7 +199,7 @@ function StatusUpdateModal({ isOpen, onClose, warga, wargaHistory }: StatusUpdat
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, isIuranRT: !form.isIuranRT })}
-                      className="w-full flex items-center gap-4 bg-white p-5 rounded-2xl border border-[#E5E5DA] hover:border-[#A3A375] transition-all text-left"
+                      className="form-card form-card--warga w-full flex items-center gap-4 bg-white p-5 rounded-2xl border border-[#E5E5DA] hover:border-[#A3A375] transition-all text-left"
                     >
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-inner", form.isIuranRT ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-400")}>
                         <Users className="w-5 h-5" />
@@ -315,15 +326,24 @@ export default function WargaList() {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    nama: string;
+    noRumah: string;
+    phone: string;
+    isIuranWajib: boolean;
+    isIuranRT: boolean;
+    status: 'Aktif' | 'Non-Aktif' | 'Pindah';
+    statusHuni: 'Menghuni' | 'Tidak Menghuni' | 'Keluar';
+    role: 'Pemilik' | 'Penyewa';
+  }>({
     nama: '',
     noRumah: '',
     phone: '',
     isIuranWajib: true,
     isIuranRT: false,
-    status: 'Aktif' as const,
-    statusHuni: 'Menghuni' as const,
-    role: 'Pemilik' as 'Pemilik' | 'Penyewa',
+    status: 'Aktif',
+    statusHuni: 'Menghuni',
+    role: 'Pemilik',
   });
 
   useEffect(() => {
@@ -428,12 +448,28 @@ export default function WargaList() {
       .map(t => t.wargaId)
   ), [transaksi, selectedViewMonth]);
 
+  // Compute total arrears per warga using calculateArrears.
+  // "Sudah Bayar" only when arrears count = 0.
+  const wargaArrearsMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    warga.forEach(w => {
+      if (!w.isIuranWajib) {
+        map.set(w.id, []);
+        return;
+      }
+      const items = calculateArrears(w, transaksi, kategori, wargaHistory, warga);
+      map.set(w.id, items);
+    });
+    return map;
+  }, [warga, transaksi, kategori, wargaHistory]);
+
   const filteredWarga = useMemo(() => warga.filter(w => {
     const matchesSearch = w.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
       w.noRumah.toLowerCase().includes(searchTerm.toLowerCase());
-    const isArrear = w.isIuranWajib && w.status === 'Aktif' && !paidThisMonth.has(w.id);
+    const items = wargaArrearsMap.get(w.id) ?? [];
+    const isArrear = w.isIuranWajib && items.some(i => i.month === selectedViewMonth);
     return matchesSearch && (!filterArrears || isArrear);
-  }), [warga, searchTerm, filterArrears, paidThisMonth]);
+  }), [warga, searchTerm, filterArrears, wargaArrearsMap, selectedViewMonth]);
 
   const sortedWarga = useMemo(() =>
     [...filteredWarga].sort((a, b) => parseInt(a.noRumah, 10) - parseInt(b.noRumah, 10) || a.nama.localeCompare(b.nama)),
@@ -530,7 +566,7 @@ export default function WargaList() {
               const d = new Date(new Date().getFullYear(), new Date().getMonth() - i, 1);
               return (
                 <option key={format(d, 'yyyy-MM')} value={format(d, 'yyyy-MM')}>
-                  Iuran {format(d, 'MMMM yyyy')}
+                  Iuran {format(d, 'MMMM yyyy', { locale: id })}
                 </option>
               );
             })}
@@ -561,11 +597,12 @@ export default function WargaList() {
             </thead>
             <tbody className="divide-y divide-[#F5F5F0]">
               {sortedWarga.map((w) => {
-                const hasPaid = paidThisMonth.has(w.id);
+                const items = wargaArrearsMap.get(w.id) ?? [];
+                const hasPaid = !items.some(i => i.month === selectedViewMonth);
                 const hasHistory = wargaHistory.some(h => h.wargaId === w.id);
 
                 return (
-                  <tr key={w.id} className="hover:bg-[#F5F5F0]/30 transition-colors group">
+                  <tr key={w.id} className="table-row table-row--warga hover:bg-[#F5F5F0]/30 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
                         <div className="w-11 h-11 bg-[#A3A375]/10 rounded-2xl flex items-center justify-center font-bold text-[#5A5A40]">
@@ -869,7 +906,7 @@ export default function WargaList() {
                           ))}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#E5E5DA]">
+                      <div className="form-card form-card--warga flex items-center gap-4 bg-white p-4 rounded-2xl border border-[#E5E5DA]">
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-inner", formData.isIuranRT ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-400")}>
                           <Users className="w-5 h-5" />
                         </div>

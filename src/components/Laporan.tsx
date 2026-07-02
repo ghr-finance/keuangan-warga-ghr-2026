@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
 import { Transaksi, Kategori, Warga } from '../types';
 import { Download, TrendingUp, PieChart, Coins, Home, Moon } from 'lucide-react';
-import { formatCurrency, cn, resolveWargaForDate } from '../lib/utils';
+import { formatCurrency, cn, resolveWargaForDate, getRTMasukCatIds, getRTKeluarCatIds } from '../lib/utils';
 import { format, startOfMonth, endOfMonth, isWithinInterval, startOfYear, eachMonthOfInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
 import jsPDF from 'jspdf';
@@ -34,13 +34,8 @@ export default function Laporan() {
   const end = endOfMonth(new Date(selectedMonth));
 
   // RT & DKM category and description helper filters for stakeholder separation
-  const rtMasukCatIds = kategori.filter(c => 
-    c.nama.toLowerCase() === 'iuran rt'
-  ).map(c => c.id);
-  
-  const rtKeluarCatIds = kategori.filter(c => 
-    c.nama.toLowerCase() === 'penyerahan iuran rt'
-  ).map(c => c.id);
+  const rtMasukCatIds = getRTMasukCatIds(kategori);
+  const rtKeluarCatIds = getRTKeluarCatIds(kategori);
 
   const dkmCatIds = kategori.filter(c => 
     c.nama.toLowerCase().includes('dkm') || 
@@ -99,6 +94,13 @@ export default function Laporan() {
   const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   const cumSaldo = cumTotalMasuk - cumTotalKeluar;
   const finalSaldoAkhir = cumSaldo + carryforwardBal;
+  // Combined totals including RT & DKM for reference
+  const cumulativeTransAll = transaksi.filter(t => {
+    const txDate = new Date(t.tanggal);
+    return txDate >= yearStart && txDate <= cumulativeEnd;
+  });
+  const cumTotalMasukAll = cumulativeTransAll.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumTotalKeluarAll = cumulativeTransAll.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // RT & DKM calculations for the selected month
   const monthRTTransactions = transaksi.filter(t => 
@@ -115,14 +117,16 @@ export default function Laporan() {
   const dkmMonthKeluar = monthDKMTransactions.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   const dkmMonthSurplus = dkmMonthMasuk - dkmMonthKeluar;
 
+  const saldoRT2025 = 540000;
+
   // Cumulative balances up to the end of selected month for RT & DKM
   const rtCumulativeTransactions = transaksi.filter(t => {
     const txDate = new Date(t.tanggal);
-    return txDate <= cumulativeEnd && isRTTransaction(t);
+    return txDate >= yearStart && txDate <= cumulativeEnd && isRTTransaction(t);
   });
   const rtCumulativeSaldo = rtCumulativeTransactions.reduce((acc, curr) => {
     return curr.tipe === 'pemasukan' ? acc + curr.jumlah : acc - curr.jumlah;
-  }, 0);
+  }, saldoRT2025);
 
   const dkmCumulativeTransactions = transaksi.filter(t => {
     const txDate = new Date(t.tanggal);
@@ -172,8 +176,10 @@ export default function Laporan() {
 
     // Table 2: Cumulative Summary (Jan 2026 until now + Carryforward)
     const cumulativeSummaryData = [
-      ['Total Pemasukan (Sejak Jan 2026)', formatCurrency(cumTotalMasuk)],
-      ['Total Pengeluaran (Sejak Jan 2026)', formatCurrency(cumTotalKeluar)],
+        ['Total Pemasukan (Sejak Jan 2026)', formatCurrency(cumTotalMasuk)],
+        ['Total Pemasukan (Sejak Jan 2026, inkl. RT & DKM)', formatCurrency(cumTotalMasukAll)],
+        ['Total Pengeluaran (Sejak Jan 2026)', formatCurrency(cumTotalKeluar)],
+        ['Total Pengeluaran (Sejak Jan 2026, inkl. RT & DKM)', formatCurrency(cumTotalKeluarAll)],
       ['Saldo Awal (Carryforward 2025)', formatCurrency(carryforwardBal)],
       ['Saldo Kas Akhir', formatCurrency(finalSaldoAkhir)]
     ];
@@ -332,7 +338,7 @@ export default function Laporan() {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#3A3A2A] tracking-tight">Laporan Bulanan</h1>
           <p className="text-[#A3A375] font-medium mt-2">Analisis pemasukan dan pengeluaran tiap bulan.</p>
         </div>
-        <div className="flex gap-4">
+        <div className="filter-bar flex gap-4">
           <select 
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
@@ -355,15 +361,15 @@ export default function Laporan() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
+        <div className="summary-item summary-item--laporan bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pemasukan</p>
           <p className="text-base sm:text-lg font-bold font-mono text-[#5A5A40] truncate" title={formatCurrency(totalMasuk)}>{formatCurrency(totalMasuk)}</p>
         </div>
-        <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
+        <div className="summary-item summary-item--laporan bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pengeluaran</p>
           <p className="text-base sm:text-lg font-bold font-mono text-[#8B4513] truncate" title={formatCurrency(totalKeluar)}>{formatCurrency(totalKeluar)}</p>
         </div>
-        <div className="bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
+        <div className="summary-item summary-item--laporan bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Surplus Bersih</p>
           <p className={cn(
             "text-base sm:text-lg font-bold font-mono truncate", 
@@ -526,7 +532,7 @@ export default function Laporan() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm overflow-hidden flex flex-col h-full">
+        <div className="report-card bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm overflow-hidden flex flex-col h-full">
           <div className="p-8 border-b border-[#F5F5F0] flex items-center justify-between">
             <h3 className="text-xl font-bold text-[#3A3A2A] flex items-center gap-3">
               <PieChart className="w-6 h-6 text-[#A3A375]" /> Alokasi Kategori
@@ -567,7 +573,7 @@ export default function Laporan() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm overflow-hidden flex flex-col h-full">
+        <div className="report-card bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm overflow-hidden flex flex-col h-full">
           <div className="p-8 border-b border-[#F5F5F0] flex items-center justify-between">
             <h3 className="text-xl font-bold text-[#3A3A2A] flex items-center gap-3">
               <TrendingUp className="w-6 h-6 text-[#A3A375]" /> Histori Arus Kas

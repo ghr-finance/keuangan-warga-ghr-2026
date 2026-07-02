@@ -1,4 +1,5 @@
 import { format, startOfMonth, addMonths, isBefore } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { Warga, Transaksi, Kategori, WargaHistory } from '../types';
 import { getMonthlyFee } from './utils';
 
@@ -120,13 +121,16 @@ export function calculateArrears(
   let checkDate = startDate;
   while (isBefore(checkDate, addMonths(currentMonth, 1))) {
     const monthStr = format(checkDate, 'yyyy-MM');
-    const monthLabel = format(checkDate, 'MMMM yyyy');
+    const monthLabel = format(checkDate, 'MMMM yyyy', { locale: id });
 
     // Get the historically accurate state of this warga for this month
     const state = getWargaStateForMonth(warga, monthStr, wargaHistory);
 
-    // Only calculate arrears for months when warga is not 'Pindah'
-    if (state.status === 'Pindah') {
+    // Skip billing only for Penyewa who has moved out ('Pindah').
+    // Pemilik who moves abroad or relocates still owns the property
+    // and remains obligated to pay iuran — ownership doesn't transfer
+    // just because the owner is no longer residing.
+    if (state.status === 'Pindah' && state.role === 'Penyewa') {
       checkDate = addMonths(checkDate, 1);
       continue;
     }
@@ -195,7 +199,8 @@ export function calculateArrears(
     const thrMonthStr = '2026-03'; // Ramadan/Lebaran month
     const stateTHR = getWargaStateForMonth(warga, thrMonthStr, wargaHistory);
 
-    if (stateTHR.status !== 'Pindah') {
+    // Same rule: Pemilik is always liable for THR regardless of residency status.
+    if (stateTHR.status !== 'Pindah' || stateTHR.role === 'Pemilik') {
       const hasPaidTHR = transaksi.some(t =>
         t.wargaId === warga.id &&
         t.tipe === 'pemasukan' &&

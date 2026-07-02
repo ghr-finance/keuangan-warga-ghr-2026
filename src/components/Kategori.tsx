@@ -170,7 +170,7 @@ export default function KategoriList() {
           </div>
           <div className="grid grid-cols-1 gap-3">
             {kategori.filter(k => k.tipe === 'pemasukan').map((k) => (
-              <div key={k.id} className="bg-white p-5 rounded-[24px] border border-[#E5E5DA] flex items-center justify-between group hover:border-[#A3A375] transition-all">
+              <div key={k.id} className="list-item--kategori bg-white p-5 rounded-[24px] border border-[#E5E5DA] flex items-center justify-between group hover:border-[#A3A375] transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-11 h-11 bg-[#F5F5F0] rounded-2xl flex items-center justify-center text-[#A3A375] group-hover:bg-[#5A5A40] group-hover:text-white transition-colors shadow-inner">
                     <Tag className="w-5 h-5" />
@@ -207,7 +207,7 @@ export default function KategoriList() {
           </div>
           <div className="grid grid-cols-1 gap-3">
             {kategori.filter(k => k.tipe === 'pengeluaran').map((k) => (
-              <div key={k.id} className="bg-white p-5 rounded-[24px] border border-[#E5E5DA] flex items-center justify-between group hover:border-[#8B4513]/30 transition-all">
+              <div key={k.id} className="list-item--kategori bg-white p-5 rounded-[24px] border border-[#E5E5DA] flex items-center justify-between group hover:border-[#8B4513]/30 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-11 h-11 bg-[#F5F5F0] rounded-2xl flex items-center justify-center text-[#A3A375] group-hover:bg-[#8B4513] group-hover:text-white transition-colors shadow-inner">
                     <Tag className="w-5 h-5" />

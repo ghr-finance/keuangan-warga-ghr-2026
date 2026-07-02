@@ -134,7 +134,7 @@ export default function BackupRegistry() {
             </div>
           ) : (
             backups.map((bak) => (
-              <div key={bak.id} className="group flex items-center justify-between p-5 bg-[#F5F5F0]/50 hover:bg-white hover:shadow-xl hover:shadow-[#5A5A40]/5 border border-transparent hover:border-[#E5E5DA] rounded-[28px] transition-all duration-500">
+              <div key={bak.id} className="list-item--backup group flex items-center justify-between p-5 bg-[#F5F5F0]/50 hover:bg-white hover:shadow-xl hover:shadow-[#5A5A40]/5 border border-transparent hover:border-[#E5E5DA] rounded-[28px] transition-all duration-500">
                 <div className="flex items-center gap-5">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-[#E5E5DA] group-hover:scale-110 transition-transform shadow-sm">
                     <Database className="w-6 h-6 text-[#5A5A40]" />

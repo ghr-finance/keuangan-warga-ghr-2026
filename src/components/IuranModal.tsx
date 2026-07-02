@@ -5,6 +5,7 @@ import { X, CreditCard, Calendar, User, Info, CheckCircle2 } from 'lucide-react'
 import { cn, formatCurrency } from '../lib/utils';
 import { calculateArrears, ArrearItem } from '../lib/arrears';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface IuranModalProps {
@@ -26,6 +27,8 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
     kategoriId: '',
     tanggal: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   });
+  
+  const [useKasUmum, setUseKasUmum] = useState(false);
 
   const categoriesPemasukan = useMemo(() => 
     kategori.filter(k => k.tipe === 'pemasukan' && k.nama !== 'Pembayaran Tunggakan'),
@@ -58,6 +61,27 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
     return calculateArrears(w, transaksi, kategori, wargaHistory, wargaList);
   }, [formData.wargaId, selectedWarga, transaksi, kategori, wargaList, wargaHistory]);
 
+  const kasUmumCategory = useMemo(() => 
+    kategori.find(k => k.nama.toLowerCase().includes('kas umum')),
+  [kategori]);
+
+  const kasUmumBalance = useMemo(() => {
+    if (!formData.wargaId || !kasUmumCategory) return 0;
+    
+    const wargaTransactions = transaksi.filter(t => t.wargaId === formData.wargaId && t.kategoriId === kasUmumCategory.id);
+    
+    const masuk = wargaTransactions.filter(t => t.tipe === 'pemasukan').reduce((sum, t) => sum + t.jumlah, 0);
+    const keluar = wargaTransactions.filter(t => t.tipe === 'pengeluaran').reduce((sum, t) => sum + t.jumlah, 0);
+    
+    return masuk - keluar;
+  }, [formData.wargaId, kasUmumCategory, transaksi]);
+
+  useEffect(() => {
+    if (kasUmumBalance <= 0) {
+      setUseKasUmum(false);
+    }
+  }, [kasUmumBalance]);
+
   // Arrear Key Generator
   const getArrearKey = (item: ArrearItem) => `${item.type}-${item.label}-${item.month || ''}`;
 
@@ -83,6 +107,8 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
   );
 
   const totalAmount = selectedArrearsItems.reduce((acc, item) => acc + item.amount, 0);
+  const amountDeductedFromKasUmum = (useKasUmum && kasUmumBalance > 0) ? Math.min(totalAmount, kasUmumBalance) : 0;
+  const netAmountToPay = totalAmount - amountDeductedFromKasUmum;
 
   const handleSubmit = async (e: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -100,7 +126,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
         const cat = kategori.find(k => k.id === finalCatId);
         const catName = cat?.nama || 'Iuran';
         
-        const monthLabel = item.month ? format(new Date(item.month), 'MMMM yyyy') : '';
+        const monthLabel = item.month ? format(new Date(item.month), 'MMMM yyyy', { locale: id }) : '';
         const displayMonth = monthLabel ? `(${monthLabel})` : '';
         
         // Pattern: Pembayaran Tunggakan [Warga] - [Item Label] ([Bulan Tahun])
@@ -118,6 +144,20 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
           createdAt: Date.now()
         });
       }
+
+      // If Kas Umum is used, deduct the amount from their wallet
+      if (useKasUmum && kasUmumCategory && amountDeductedFromKasUmum > 0) {
+        await dbService.add('transaksi', {
+          tanggal: new Date(formData.tanggal).getTime(),
+          jumlah: amountDeductedFromKasUmum,
+          keterangan: `Pemotongan Saldo Kas Umum untuk Pembayaran Tagihan`,
+          tipe: 'pengeluaran',
+          kategoriId: kasUmumCategory.id,
+          wargaId: w.id,
+          createdAt: Date.now()
+        });
+      }
+
       onClose();
     } catch (error) {
       console.error(error);
@@ -135,7 +175,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          className="bg-[#F5F5F0] rounded-[40px] w-full max-w-xl shadow-2xl border border-[#E5E5DA] overflow-hidden flex flex-col max-h-[90vh]"
+          className="form-card form-card--iuran bg-[#F5F5F0] rounded-[40px] w-full max-w-xl shadow-2xl border border-[#E5E5DA] overflow-hidden flex flex-col max-h-[90vh]"
         >
           <div className="p-8 border-b border-[#E5E5DA] flex items-center justify-between bg-white/50 shrink-0">
             <div className="flex items-center gap-4">
@@ -212,7 +252,7 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
                             key={key}
                             onClick={() => toggleArrear(key)}
                             className={cn(
-                              "p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group",
+                              "list-item--tunggakan p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group",
                               isSelected 
                                 ? "bg-white border-[#5A5A40] shadow-md ring-2 ring-[#5A5A40]/5" 
                                 : "bg-white/50 border-[#E5E5DA] hover:border-[#A3A375]"
@@ -241,6 +281,28 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
                 </div>
               )}
 
+              {/* Kas Umum Option */}
+              {kasUmumBalance > 0 && formData.wargaId && (
+                <div className="bg-[#5A5A40]/5 p-6 rounded-3xl border border-[#5A5A40]/10 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Saldo Kas Umum / Dompet</p>
+                    <p className="text-lg font-bold text-[#3A3A2A] font-mono">{formatCurrency(kasUmumBalance)}</p>
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <span className="text-sm font-bold text-[#5A5A40]">Gunakan Saldo</span>
+                    <div className="relative">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={useKasUmum}
+                        onChange={(e) => setUseKasUmum(e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5A5A40]"></div>
+                    </div>
+                  </label>
+                </div>
+              )}
+
               {/* Date */}
               {selectedArrearsKeys.length > 0 && (
                 <motion.div 
@@ -263,8 +325,13 @@ export default function IuranModal({ isOpen, onClose, selectedWarga, wargaList, 
                       </div>
                     </div>
                     <div className="bg-[#5A5A40] p-6 rounded-3xl flex flex-col justify-center items-end text-white shadow-lg">
-                      <p className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">Total Bayar</p>
-                      <p className="text-xl font-bold font-mono tracking-tight">{formatCurrency(totalAmount)}</p>
+                      <p className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">Total Sisa Bayar Tunai</p>
+                      <p className="text-xl font-bold font-mono tracking-tight">{formatCurrency(netAmountToPay)}</p>
+                      {useKasUmum && amountDeductedFromKasUmum > 0 && (
+                        <p className="text-[10px] opacity-80 mt-1">
+                          (Dipotong Kas Umum: {formatCurrency(amountDeductedFromKasUmum)})
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>

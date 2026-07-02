@@ -4,6 +4,7 @@ import { Transaksi, Warga, Kategori, TransactionType, Petugas, Event } from '../
 import { Plus, Search, ArrowUpRight, ArrowDownLeft, Calendar, User, Tag, Trash2, X, CreditCard, ChevronDown, UserCheck, Layout, Info, CheckCircle2, Edit2 } from 'lucide-react';
 import { cn, formatDate, formatCurrency, resolveWargaForDate } from '../lib/utils';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function TransaksiList() {
@@ -57,6 +58,18 @@ export default function TransaksiList() {
   const isWargaMenghuni = selectedWarga?.statusHuni === 'Menghuni';
   const displayBaseAmountForReference = isWargaMenghuni ? 200000 : 175000;
 
+  const kasUmumCategory = React.useMemo(() => 
+    kategori.find(k => k.nama.toLowerCase().includes('kas umum')),
+  [kategori]);
+
+  const kasUmumBalance = React.useMemo(() => {
+    if (!formData.wargaId || !kasUmumCategory) return 0;
+    const wargaTransactions = transaksi.filter(t => t.wargaId === formData.wargaId && t.kategoriId === kasUmumCategory.id && t.id !== editingId);
+    const masuk = wargaTransactions.filter(t => t.tipe === 'pemasukan').reduce((sum, t) => sum + t.jumlah, 0);
+    const keluar = wargaTransactions.filter(t => t.tipe === 'pengeluaran').reduce((sum, t) => sum + t.jumlah, 0);
+    return masuk - keluar;
+  }, [formData.wargaId, kasUmumCategory, transaksi, editingId]);
+
   // Total amount calculation
   const calculatedTotal = isIuranBulanan 
     ? (selectedBaseAmount || 0) + (typeof customAmount === 'number' ? customAmount : 0)
@@ -97,6 +110,13 @@ export default function TransaksiList() {
     if (!formData.kategoriId) {
       setErrorMsg('Pilih kategori!');
       return;
+    }
+
+    if (kasUmumCategory && formData.kategoriId === kasUmumCategory.id && formData.tipe === 'pengeluaran') {
+      if (Number(formData.jumlah) > kasUmumBalance) {
+        setErrorMsg(`Saldo Kas Umum Warga tidak mencukupi. Sisa saldo: ${formatCurrency(kasUmumBalance)}`);
+        return;
+      }
     }
     
     // Check for identical transactions in the last 24 hours (only for new transactions)
@@ -266,7 +286,7 @@ export default function TransaksiList() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] flex items-center justify-between shadow-sm group hover:border-[#A3A375] transition-colors">
+        <div className="summary-item summary-item--pemasukan bg-white p-6 rounded-[32px] border border-[#E5E5DA] flex items-center justify-between shadow-sm group hover:border-[#A3A375] transition-colors">
           <div>
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Pemasukan</p>
             <p className="text-2xl font-bold font-mono text-[#5A5A40] tracking-tight">{formatCurrency(totalMasuk)}</p>
@@ -275,7 +295,7 @@ export default function TransaksiList() {
             <ArrowDownLeft className="text-emerald-700 w-8 h-8" />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] flex items-center justify-between shadow-sm group hover:border-[#8B4513]/30 transition-colors">
+        <div className="summary-item summary-item--pengeluaran bg-white p-6 rounded-[32px] border border-[#E5E5DA] flex items-center justify-between shadow-sm group hover:border-[#8B4513]/30 transition-colors">
           <div>
             <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1">Total Pengeluaran</p>
             <p className="text-2xl font-bold font-mono text-[#8B4513] tracking-tight">{formatCurrency(totalKeluar)}</p>
@@ -329,7 +349,7 @@ export default function TransaksiList() {
               {Array.from(new Set(transaksi.map(t => format(new Date(t.tanggal), 'yyyy-MM'))))
                 .sort((a, b) => (b as string).localeCompare(a as string))
                 .map((m) => (
-                  <option key={m as string} value={m as string}>{format(new Date(m as string), 'MMM yy')}</option>
+                  <option key={m as string} value={m as string}>{format(new Date(m as string), 'MMM yy', { locale: id })}</option>
                 ))
               }
             </select>
@@ -373,19 +393,19 @@ export default function TransaksiList() {
       <div className="bg-white border border-[#E5E5DA] rounded-[32px] overflow-hidden shadow-sm">
         <div className="divide-y divide-[#F5F5F0]">
           {filteredTransaksi.map((t) => (
-            <div key={t.id} className="p-6 sm:p-8 hover:bg-[#F5F5F0]/30 transition-colors flex flex-col sm:flex-row sm:items-center gap-6 group">
+            <div key={t.id} className="list-item--transaksi p-4 sm:p-5 hover:bg-[#F5F5F0]/30 transition-colors flex flex-col sm:flex-row sm:items-center gap-4 group">
               <div className={cn(
-                "w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-inner",
+                "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner",
                 t.tipe === 'pemasukan' ? "bg-[#f0f9f1]" : "bg-[#fff5f5]"
               )}>
-                {t.tipe === 'pemasukan' ? <ArrowDownLeft className="text-emerald-700 w-7 h-7" /> : <ArrowUpRight className="text-[#8B4513] w-7 h-7" />}
+                {t.tipe === 'pemasukan' ? <ArrowDownLeft className="text-emerald-700 w-6 h-6" /> : <ArrowUpRight className="text-[#8B4513] w-6 h-6" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
                   <h4 className="font-bold text-[#3A3A2A] text-lg truncate group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</h4>
                   {t.bulanIuran && (
                     <span className="text-[10px] font-black text-[#5A5A40] bg-[#A3A375]/20 px-3 py-1 rounded-full uppercase tracking-[0.1em] shrink-0">
-                      Tagihan {format(new Date(t.bulanIuran), 'MMM yyyy')}
+                      Tagihan {format(new Date(t.bulanIuran), 'MMM yyyy', { locale: id })}
                     </span>
                   )}
                 </div>
@@ -532,8 +552,8 @@ export default function TransaksiList() {
                   </button>
                 </div>
 
-                <div className="bg-white p-6 rounded-[24px] border border-[#E5E5DA] shadow-sm space-y-6">
-                  <div className={cn("grid gap-4", formData.tipe === 'pemasukan' ? "grid-cols-2" : "grid-cols-1")}>
+                <div className="form-card form-card--transaksi bg-white p-6 rounded-[24px] border border-[#E5E5DA] shadow-sm space-y-6">
+                  <div className={cn("grid gap-4", (formData.tipe === 'pemasukan' || formData.kategoriId === kasUmumCategory?.id) ? "grid-cols-2" : "grid-cols-1")}>
                     <div>
                       <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Kategori</label>
                       <div className="relative">
@@ -551,7 +571,7 @@ export default function TransaksiList() {
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A375] pointer-events-none" />
                       </div>
                     </div>
-                    {formData.tipe === 'pemasukan' && (
+                    {(formData.tipe === 'pemasukan' || formData.kategoriId === kasUmumCategory?.id) && (
                       <div>
                         <label className="block text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Warga</label>
                         <div className="relative">
@@ -579,6 +599,14 @@ export default function TransaksiList() {
                               <span className="text-[10px] font-bold text-[#4A4A3A]">{selectedWarga.statusHuni === 'Menghuni' ? 'Aktif (MENGHUNI)' : 'Nonaktif (TIDAK MENGHUNI)'}</span>
                               <span className="text-[9px] text-[#A3A375]">Status warga terikat waktu status berubah</span>
                             </div>
+                          </div>
+                        )}
+                        {formData.kategoriId === kasUmumCategory?.id && formData.wargaId && (
+                          <div className="mt-2 p-3 bg-[#5A5A40]/5 rounded-xl border border-[#5A5A40]/10 flex items-center justify-between">
+                            <span className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Kas Umum:</span>
+                            <span className={cn("text-xs font-bold font-mono", kasUmumBalance > 0 ? "text-[#10B981]" : "text-red-500")}>
+                              {formatCurrency(kasUmumBalance)}
+                            </span>
                           </div>
                         )}
                       </div>

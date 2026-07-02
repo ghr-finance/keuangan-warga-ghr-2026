@@ -281,7 +281,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
           <div className="flex-1 overflow-y-auto p-8 sm:p-10 space-y-10">
             {/* Stats Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
+              <div className="info-card info-card--warga-stats bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
                 <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Total Kontribusi</p>
                 <div className="flex items-center justify-between">
                   <h3 className="text-2xl font-bold text-emerald-600">
@@ -290,7 +290,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   <ArrowUpRight className="w-6 h-6 text-emerald-300" />
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
+              <div className="info-card info-card--warga-stats bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
                 <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Status Kewajiban</p>
                 <div className="flex items-center gap-3">
                   {arrearsItems.length === 0 ? (
@@ -306,7 +306,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   )}
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
+              <div className="info-card info-card--warga-stats bg-white p-6 rounded-[32px] border border-[#E5E5DA] shadow-sm">
                 <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-4">Warga Sejak</p>
                 <div className="flex items-center gap-3">
                   <Clock className="w-6 h-6 text-[#A3A375]" />
@@ -318,7 +318,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
               {/* Tunggakan Macet 2025 Section */}
               {entryMacet && (
-                <div className="lg:col-span-2 bg-[#8B4513]/5 border-2 border-dashed border-[#8B4513]/20 rounded-[40px] p-8 space-y-6">
+                <div className="info-card info-card--tunggakan-macet lg:col-span-2 bg-[#8B4513]/5 border-2 border-dashed border-[#8B4513]/20 rounded-[40px] p-8 space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-[#8B4513] rounded-2xl flex items-center justify-center shadow-lg">
@@ -420,7 +420,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
 
               {/* Timeline Histori Status Warga */}
               {wargaHistory.filter(h => h.wargaId === warga.id).length > 0 && (
-                <div className="lg:col-span-2 bg-[#A3A375]/10 border border-[#A3A375]/30 rounded-[32px] p-6 sm:p-8 space-y-6">
+                <div className="info-card info-card--timeline lg:col-span-2 bg-[#A3A375]/10 border border-[#A3A375]/30 rounded-[32px] p-6 sm:p-8 space-y-6">
                   <div className="flex items-center gap-3">
                     <History className="w-5 h-5 text-[#5A5A40]" />
                     <h4 className="text-lg font-bold text-[#3A3A2A]">Rentang Histori Perubahan Status & Kepenghunian</h4>
@@ -467,7 +467,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   <History className="w-5 h-5 text-[#5A5A40]" />
                   <h3 className="text-xl font-serif font-bold text-[#3A3A2A]">Semua Riwayat Transaksi</h3>
                 </div>
-                <div className="bg-white rounded-[32px] border border-[#E5E5DA] overflow-hidden shadow-sm">
+                <div className="info-card info-card--history-table bg-white rounded-[32px] border border-[#E5E5DA] overflow-hidden shadow-sm">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-[#F5F5F0]/50 text-[10px] font-black text-[#A3A375] uppercase tracking-widest">
@@ -511,7 +511,7 @@ export default function WargaDetailModal({ isOpen, onClose, warga, transaksi, ka
                   <AlertCircle className={cn("w-5 h-5", arrearsItems.length > 0 ? "text-amber-500" : "text-[#5A5A40]")} />
                   <h3 className="text-xl font-serif font-bold text-[#3A3A2A]">Daftar Tunggakan</h3>
                 </div>
-                <div className="bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-8">
+                <div className="info-card info-card--arrears bg-white rounded-[32px] border border-[#E5E5DA] shadow-sm p-8">
                   {arrearsItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
                       <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">

@@ -38,3 +38,24 @@ export function getMonthlyFee(monthStr: string, statusHuni: string) {
 export function resolveWargaForDate(warga: any | undefined) {
   return warga;
 }
+
+// Helpers to find RT-related category ids in a tolerant way.
+export function getRTMasukCatIds(categories: Array<any>) {
+  return categories
+    .filter((c) => {
+      const name = (c?.nama || '').toLowerCase();
+      // Accept categories that mention 'rt' but exclude obvious 'penyerahan' (these are expenses)
+      return name.includes('rt') && !name.includes('penyerahan') && !name.includes('dkm') && !name.includes('masjid') && !name.includes('mushola');
+    })
+    .map((c) => c.id);
+}
+
+export function getRTKeluarCatIds(categories: Array<any>) {
+  return categories
+    .filter((c) => {
+      const name = (c?.nama || '').toLowerCase();
+      // Expenses are often labelled with 'penyerahan' + 'rt' or 'penyaluran' + 'rt'
+      return (name.includes('penyerahan') || name.includes('penyaluran')) && name.includes('rt');
+    })
+    .map((c) => c.id);
+}

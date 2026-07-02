@@ -15,6 +15,7 @@ import {
 import { dbService } from './services/db';
 import { cn } from './lib/utils';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import Dashboard from './components/Dashboard';
 import WargaList from './components/Warga';
 import TransaksiList from './components/Transaksi';
@@ -158,24 +159,24 @@ export default function App() {
         const monthKey = format(today, 'yyyy-MM');
         const storageKey = `auto_backup_${monthKey}`;
         
-        if (localStorage.getItem(storageKey)) return;
+        if (today.getDate() === 1) {
+          console.log(`Monthly auto-backup check: today is the 1st of ${format(today, 'MMMM', { locale: id })}. Checking existing backups...`);
+          
+          try {
+            const backups = await backupService.listBackups() as any[];
+            const hasBackupForCurrentMonth = backups.some(b => 
+              b.label && b.label.includes('Auto-Backup') && 
+              b.timestamp && format(new Date(b.timestamp), 'yyyy-MM') === monthKey
+            );
 
-        console.log(`Monthly auto-backup check: today is the 1st of ${format(today, 'MMMM')}. Checking existing backups...`);
-        
-        try {
-          const backups = await backupService.listBackups() as any[];
-          const hasBackupThisMonth = backups.some(b => 
-            b.label && b.label.includes('Auto-Backup') && 
-            b.timestamp && format(new Date(b.timestamp), 'yyyy-MM') === monthKey
-          );
-
-          if (!hasBackupThisMonth) {
-            console.log('No auto-backup found for this month. Creating one...');
-            await backupService.createBackup(`Auto-Backup ${format(today, 'MMMM yyyy')}`);
-            localStorage.setItem(storageKey, 'true');
+            if (!hasBackupForCurrentMonth) {
+              console.log('No auto-backup found for this month. Creating one...');
+              await backupService.createBackup(`Auto-Backup ${format(today, 'MMMM yyyy', { locale: id })}`);
+              localStorage.setItem(storageKey, 'true');
+            }
+          } catch (err) {
+            console.error('Auto-backup job failed:', err);
           }
-        } catch (err) {
-          console.error('Auto-backup job failed:', err);
         }
       };
 

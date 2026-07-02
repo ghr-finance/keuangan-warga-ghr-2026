@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency, cn, getRTMasukCatIds, getRTKeluarCatIds } from '../lib/utils';
 import { 
   Wallet, 
   Home, 
@@ -18,6 +18,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { subMonths, format, isSameMonth } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { Transaksi, Kategori, Event } from '../types';
 
 export function GhrBrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
@@ -79,13 +80,8 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
   }, []);
 
   // 1. Core Categories & Identification Helpers for RT & DKM
-  const rtMasukCatIds = categories.filter(c => 
-    c.nama.toLowerCase() === 'iuran rt'
-  ).map(c => c.id);
-  
-  const rtKeluarCatIds = categories.filter(c => 
-    c.nama.toLowerCase() === 'penyerahan iuran rt'
-  ).map(c => c.id);
+  const rtMasukCatIds = getRTMasukCatIds(categories);
+  const rtKeluarCatIds = getRTKeluarCatIds(categories);
 
   const dkmCatIds = categories.filter(c => 
     c.nama.toLowerCase().includes('dkm') || 
@@ -132,6 +128,9 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
   const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
   const cumSaldo = cumTotalMasuk - cumTotalKeluar;
   const finalSaldoAkhir = cumSaldo + carryforwardBal;
+  // Combined totals including RT & DKM (for users who want the overall numbers)
+  const cumTotalMasukAll = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumTotalKeluarAll = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // 2. Iuran RT specific calculations
   const rtMasukTransactions = transaksi.filter(t => t.tipe === 'pemasukan' && rtMasukCatIds.includes(t.kategoriId));
@@ -139,14 +138,13 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
   
   const rtMasuk = rtMasukTransactions.reduce((acc, curr) => acc + curr.jumlah, 0);
   const rtKeluar = rtKeluarTransactions.reduce((acc, curr) => acc + curr.jumlah, 0);
-  const rtSaldo = rtMasuk - rtKeluar;
-
+  const rtMasuk2026 = rtMasukTransactions.filter(t => !t.isHistorical).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtKeluar2026 = rtKeluarTransactions.filter(t => !t.isHistorical).reduce((acc, curr) => acc + curr.jumlah, 0);
   const saldoRT2025 = 540000; // Baseline 2025 RT Sinking fund
+  const rtSaldo = saldoRT2025 + rtMasuk2026 - rtKeluar2026;
   
   // Calculate income purely from 2026 (excluding historical)
-  const rtIncome2026 = rtMasukTransactions
-    .filter(t => !t.isHistorical)
-    .reduce((acc, curr) => acc + curr.jumlah, 0);
+  const rtIncome2026 = rtMasuk2026;
 
   // 3. DKM specific calculations
   const dkmTransactions = transaksi.filter(t => isDKMTransaction(t));
@@ -160,9 +158,10 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
     .reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // 4. Monthly Stats for clean Recharts visualizations (last 6 months)
-  const lastMonths = Array.from({ length: 6 }).map((_, i) => subMonths(new Date(), 5 - i));
-  const chartData = lastMonths.map(m => {
-    const monthLabel = format(m, 'MMM');
+  const monthlyTrendData = [...Array(6)].map((_, i) => {
+    const m = subMonths(new Date(), 5 - i);
+    const monthKey = format(m, 'yyyy-MM');
+    const monthLabel = format(m, 'MMM', { locale: id });
     const masuk = transaksi
       .filter(t => t.tipe === 'pemasukan' && isSameMonth(new Date(t.tanggal), m))
       .reduce((acc, curr) => acc + curr.jumlah, 0);
@@ -253,12 +252,14 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
                   <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pemasukan 2026</p>
                   <p className="text-base font-bold text-emerald-700 font-mono">+{formatCurrency(cumTotalMasuk)}</p>
+                  <p className="text-[9px] text-[#5A5A40] mt-1 font-medium">Incl. RT: +{formatCurrency(cumTotalMasukAll)}</p>
                   <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Akumulasi seluruh iuran masuk, THR, dan donasi kegiatan warga.</p>
                 </div>
 
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
                   <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pengeluaran 2026</p>
                   <p className="text-base font-bold text-red-700 font-mono">-{formatCurrency(cumTotalKeluar)}</p>
+                  <p className="text-[9px] text-[#5A5A40] mt-1 font-medium">Incl. RT: -{formatCurrency(cumTotalKeluarAll)}</p>
                   <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Alokasi pembayaran gaji petugas, perbendaharaan, &amp; pemeliharaan.</p>
                 </div>
 
@@ -300,7 +301,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                     </div>
                     <div>
                       <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest leading-none">Pengeluaran</p>
-                      <p className="text-xs sm:text-sm font-bold text-red-300 mt-1 whitespace-nowrap font-mono">-{formatCurrency(rtKeluar)}</p>
+                      <p className="text-xs sm:text-sm font-bold text-red-300 mt-1 whitespace-nowrap font-mono">-{formatCurrency(rtKeluar2026)}</p>
                     </div>
                     <div className="sm:pl-3 sm:border-l lg:pl-0 lg:border-l-0 xl:pl-3 xl:border-l border-white/10">
                       <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest leading-none">Saldo Akhir RT</p>
@@ -363,12 +364,21 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                 
                 <div className="h-64 sm:h-72 w-full mt-4">
                   <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
-                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F5F5F0" />
                       <XAxis dataKey="name" stroke="#A3A375" fontSize={11} tickLine={false} />
                       <YAxis stroke="#A3A375" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `Rp ${(val/1000000).toFixed(1)}jt`} />
                       <Tooltip 
-                        formatter={(val: number) => [formatCurrency(val), '']} 
+                        formatter={(value: number | string | readonly (number | string)[] | undefined) => {
+                          const numericValue = typeof value === 'number'
+                            ? value
+                            : typeof value === 'string'
+                              ? Number(value)
+                              : Array.isArray(value)
+                                ? Number(value[0])
+                                : 0;
+                          return [formatCurrency(numericValue), ''];
+                        }} 
                         contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #E5E5DA', fontSize: '12px' }}
                       />
                       <Bar dataKey="masuk" fill="#10B981" radius={[4, 4, 0, 0]} name="Pemasukan" maxBarSize={30} />

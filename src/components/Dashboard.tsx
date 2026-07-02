@@ -76,9 +76,11 @@ export default function Dashboard() {
     return fromCat || fromDesc;
   };
 
+  const umumTransaksi = transaksi.filter(t => !isRTTransaction(t) && !isDKMTransaction(t));
+
   // Main general financial metrics (excluding RT/DKM per stakeholder requirement)
-  const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
-  const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const totalMasuk = umumTransaksi.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const totalKeluar = umumTransaksi.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   const saldo = totalMasuk - totalKeluar;
 
   const rtMasukTransactions = transaksi.filter(t => t.tipe === 'pemasukan' && rtMasukCatIds.includes(t.kategoriId));
@@ -115,10 +117,10 @@ export default function Dashboard() {
   const months = Array.from({ length: 6 }).map((_, i) => subMonths(new Date(), 5 - i));
   const chartData = months.map(m => {
     const monthKey = format(m, 'MMM', { locale: id });
-    const masuk = transaksi
+    const masuk = umumTransaksi
       .filter(t => t.tipe === 'pemasukan' && isSameMonth(new Date(t.tanggal), m))
       .reduce((acc, curr) => acc + curr.jumlah, 0);
-    const keluar = transaksi
+    const keluar = umumTransaksi
       .filter(t => t.tipe === 'pengeluaran' && isSameMonth(new Date(t.tanggal), m))
       .reduce((acc, curr) => acc + curr.jumlah, 0);
     return { name: monthKey, masuk, keluar };
@@ -135,9 +137,9 @@ export default function Dashboard() {
   const belumBayarCount = wargaWajib.filter(w => !paidThisMonth.has(w.id)).length;
 
   const stats = [
-    { label: 'Saldo Saat Ini', value: formatCurrency(saldo), rawValue: saldo, icon: Wallet, color: 'text-blue-600', bg: 'bg-[#f0f4ff]' },
-    { label: 'Pemasukan Total', value: formatCurrency(totalMasuk), rawValue: totalMasuk, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-[#f0fff4]' },
-    { label: 'Pengeluaran Total', value: formatCurrency(totalKeluar), rawValue: totalKeluar, icon: TrendingDown, color: 'text-red-600', bg: 'bg-[#fff5f5]' },
+    { label: 'Saldo Kas Umum', value: formatCurrency(saldo), rawValue: saldo, icon: Wallet, color: 'text-blue-600', bg: 'bg-[#f0f4ff]' },
+    { label: 'Pemasukan Umum', value: formatCurrency(totalMasuk), rawValue: totalMasuk, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-[#f0fff4]' },
+    { label: 'Pengeluaran Umum', value: formatCurrency(totalKeluar), rawValue: totalKeluar, icon: TrendingDown, color: 'text-red-600', bg: 'bg-[#fff5f5]' },
     { label: 'Belum Bayar Iuran', value: `${belumBayarCount} Warga`, rawValue: belumBayarCount, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-[#fffbeb]' },
   ];
 
@@ -168,21 +170,21 @@ export default function Dashboard() {
               <stat.icon className={cn("w-5 h-5 sm:w-6 sm:h-6", stat.color)} />
             </div>
             <div className="summary-item__content flex-1 min-w-0">
-              <p className="summary-item__label text-[10px] sm:text-xs font-bold text-[#A3A375] uppercase tracking-widest leading-tight truncate">{stat.label}</p>
+              <p className="summary-item__label text-[10px] sm:text-xs font-bold text-[#A3A375] uppercase tracking-widest leading-tight">{stat.label}</p>
               <div className="flex items-baseline gap-1 mt-1 overflow-hidden">
                 <p className={cn(
                   "summary-item__value",
-                  "text-lg sm:text-xl font-black leading-tight truncate",
+                  "text-lg sm:text-xl font-black leading-tight",
                   !stat.label.includes('Warga') && "font-mono tracking-tight",
                   (stat.rawValue !== undefined && stat.rawValue < 0) ? "text-red-600 italic" : "text-[#3A3A2A]"
                 )}>
                   {stat.value}
                 </p>
               </div>
-              {stat.label === 'Saldo Saat Ini' && (
+              {stat.label === 'Saldo Kas Umum' && (
                 <div className="summary-item__caption flex items-center gap-1.5 mt-2 text-[10px] font-bold text-[#A3A375]">
                   <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                  <span className="truncate">Sisa 2025: <span className="font-mono text-[10px]">{formatCurrency(saldoAwal2025)}</span></span>
+                  <span>Carryforward Umum 2025: <span className="font-mono text-[10px]">{formatCurrency(saldoAwal2025)}</span></span>
                 </div>
               )}
             </div>
@@ -298,7 +300,7 @@ export default function Dashboard() {
 
       <div className="dashboard-page__widgets grid grid-cols-1 xl:grid-cols-5 gap-6 sm:gap-8">
         <div className="chart-card xl:col-span-3 bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-[#E5E5DA] h-fit min-w-0 overflow-hidden">
-          <h3 className="chart-card__title text-lg sm:text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas</h3>
+            <h3 className="chart-card__title text-lg sm:text-xl font-bold text-[#3A3A2A] mb-8">Statistik Arus Kas Umum</h3>
           <div className="chart-card__content h-[280px] sm:h-[320px] w-full min-w-0 overflow-hidden">
             <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -346,7 +348,7 @@ export default function Dashboard() {
             <button className="activity-card__action text-[10px] sm:text-xs font-bold text-[#5A5A40] underline underline-offset-4 decoration-[#A3A375]/40 active:scale-95 transition-transform">Lihat Semua</button>
           </h3>
           <div className="activity-card__list space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
-            {transaksi.slice(0, 8).sort((a, b) => b.tanggal - a.tanggal).map((t) => (
+            {umumTransaksi.slice(0, 8).sort((a, b) => b.tanggal - a.tanggal).map((t) => (
               <div key={t.id} className="activity-item group p-4 rounded-[24px] bg-[#F5F5F0]/50 hover:bg-white hover:shadow-xl hover:shadow-[#5A5A40]/5 border border-[#E5E5DA]/30 hover:border-[#E5E5DA] transition-all duration-300 flex items-center justify-between gap-3 min-w-0">
                 {/* Bagian Kiri: Icon + Keterangan & Tanggal */}
                 <div className="activity-item__content flex items-center gap-3 min-w-0 flex-1">
@@ -380,9 +382,9 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-            {transaksi.length === 0 && (
+            {umumTransaksi.length === 0 && (
               <div className="activity-card__empty text-center py-12 border-2 border-dashed border-[#E5E5DA] rounded-3xl h-full flex flex-col justify-center">
-                <p className="text-[#A3A375] text-xs font-medium italic">Belum ada aktivitas</p>
+                <p className="text-[#A3A375] text-xs font-medium italic">Belum ada aktivitas kas umum</p>
               </div>
             )}
           </div>

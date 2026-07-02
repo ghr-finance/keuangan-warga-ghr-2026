@@ -402,7 +402,7 @@ export default function TransaksiList() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
-                  <h4 className="font-bold text-[#3A3A2A] text-lg truncate group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</h4>
+                  <h4 className="font-bold text-[#3A3A2A] text-lg group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</h4>
                   {t.bulanIuran && (
                     <span className="text-[10px] font-black text-[#5A5A40] bg-[#A3A375]/20 px-3 py-1 rounded-full uppercase tracking-[0.1em] shrink-0">
                       Tagihan {format(new Date(t.bulanIuran), 'MMM yyyy', { locale: id })}

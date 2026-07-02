@@ -102,21 +102,23 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
     return fromCat || fromDesc;
   };
 
+  const umumTransaksi = transaksi.filter(t => !isRTTransaction(t) && !isDKMTransaction(t));
+
   // Calculate General RT Balance Metrics (identical to Admin Panel)
   // These exclude Iuran RT and DKM transactions per stakeholder requirement
-  const totalMasuk = transaksi.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
-  const totalKeluar = transaksi.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const totalMasuk = umumTransaksi.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const totalKeluar = umumTransaksi.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   // Cumulative Year 2026 (Since Jan 2026)
   const runningYear = 2026;
   const yearStart = new Date(runningYear, 0, 1);
   
-  const cumulativeTrans = transaksi.filter(t => {
+  const cumulativeTrans = umumTransaksi.filter(t => {
     const txDate = new Date(t.tanggal);
     return txDate >= yearStart;
   });
 
   // Calculate General Carryforward from 2025 (Excluding RT/DKM)
-  const carryforwardTrans = transaksi.filter(t => (t.isHistorical || new Date(t.tanggal) < yearStart) && !isRTTransaction(t) && !isDKMTransaction(t));
+  const carryforwardTrans = umumTransaksi.filter(t => t.isHistorical || new Date(t.tanggal) < yearStart);
   const carryforwardBal = carryforwardTrans.reduce((acc, curr) => {
     if (curr.tipe === 'pemasukan') return acc + curr.jumlah;
     if (curr.tipe === 'pengeluaran') return acc - curr.jumlah;
@@ -124,13 +126,10 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
   }, 0);
 
   // General Grand Totals for 2026 (Excluding RT/DKM)
-  const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
-  const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t)).reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumTotalMasuk = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
+  const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   const cumSaldo = cumTotalMasuk - cumTotalKeluar;
   const finalSaldoAkhir = cumSaldo + carryforwardBal;
-  // Combined totals including RT & DKM (for users who want the overall numbers)
-  const cumTotalMasukAll = cumulativeTrans.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
-  const cumTotalKeluarAll = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // 2. Iuran RT specific calculations
   const rtMasukTransactions = transaksi.filter(t => t.tipe === 'pemasukan' && rtMasukCatIds.includes(t.kategoriId));
@@ -163,15 +162,15 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
     const monthKey = format(m, 'yyyy-MM');
     const monthLabel = format(m, 'MMM', { locale: id });
     const masuk = transaksi
-      .filter(t => t.tipe === 'pemasukan' && isSameMonth(new Date(t.tanggal), m))
+      .filter(t => t.tipe === 'pemasukan' && !isRTTransaction(t) && !isDKMTransaction(t) && isSameMonth(new Date(t.tanggal), m))
       .reduce((acc, curr) => acc + curr.jumlah, 0);
     const keluar = transaksi
-      .filter(t => t.tipe === 'pengeluaran' && isSameMonth(new Date(t.tanggal), m))
+      .filter(t => t.tipe === 'pengeluaran' && !isRTTransaction(t) && !isDKMTransaction(t) && isSameMonth(new Date(t.tanggal), m))
       .reduce((acc, curr) => acc + curr.jumlah, 0);
     return { name: monthLabel, masuk, keluar };
   });
 
-  // Calculate top spending categories for transparency
+  // Calculate top spending categories for transparency (general cash only)
   const categorySummary = categories.map(k => {
     const amount = cumulativeTrans
       .filter(t => t.kategoriId === k.id)
@@ -246,27 +245,25 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
                   <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5">Saldo Awal (Carryforward 2025)</p>
                   <p className="text-base font-bold text-[#3A3A2A] font-mono">{formatCurrency(carryforwardBal)}</p>
-                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum &amp; sisa iuran warga akhir tahun 2025.</p>
+                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa Kas Umum akhir tahun 2025. Dana RT dan DKM dikelola terpisah.</p>
                 </div>
 
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
-                  <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pemasukan 2026</p>
+                  <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pemasukan Umum 2026</p>
                   <p className="text-base font-bold text-emerald-700 font-mono">+{formatCurrency(cumTotalMasuk)}</p>
-                  <p className="text-[9px] text-[#5A5A40] mt-1 font-medium">Incl. RT: +{formatCurrency(cumTotalMasukAll)}</p>
-                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Akumulasi seluruh iuran masuk, THR, dan donasi kegiatan warga.</p>
+                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Tidak termasuk Iuran RT dan Dana DKM.</p>
                 </div>
 
                 <div className="bg-[#F5F5F0]/40 p-5 rounded-2xl border border-[#E5E5DA]/40">
-                  <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pengeluaran 2026</p>
+                  <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-1.5 font-bold">Total Pengeluaran Umum 2026</p>
                   <p className="text-base font-bold text-red-700 font-mono">-{formatCurrency(cumTotalKeluar)}</p>
-                  <p className="text-[9px] text-[#5A5A40] mt-1 font-medium">Incl. RT: -{formatCurrency(cumTotalKeluarAll)}</p>
-                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Alokasi pembayaran gaji petugas, perbendaharaan, &amp; pemeliharaan.</p>
+                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Tidak termasuk Iuran RT dan Dana DKM.</p>
                 </div>
 
                 <div className="bg-[#5A5A40]/5 p-5 rounded-2xl border border-[#5A5A40]/15">
-                  <p className="text-[10px] font-black text-[#5A5A40] uppercase tracking-widest mb-1.5 font-bold">Saldo Kas Akhir GHR</p>
+                  <p className="text-[10px] font-black text-[#5A5A40] uppercase tracking-widest mb-1.5 font-bold">Saldo Kas Umum Akhir</p>
                   <p className="text-lg font-extrabold text-[#3A3A2A] font-mono">{formatCurrency(finalSaldoAkhir)}</p>
-                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Sisa saldo saat ini yang dipegang di kas warga secara riil.</p>
+                  <p className="text-[9px] text-[#A3A375] mt-1 font-medium">Saldo akhir kas umum yang tidak termasuk Iuran RT & DKM.</p>
                 </div>
               </div>
             </section>
@@ -288,7 +285,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                     </div>
                     <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10 self-start sm:self-auto lg:self-start xl:self-auto min-w-[150px] sm:min-w-[160px] shrink-0">
                       <div>
-                        <span className="text-[8px] font-bold text-[#A3A375] block uppercase tracking-wider">Saldo Awal 2025</span>
+                          <span className="text-[8px] font-bold text-[#A3A375] block uppercase tracking-wider">Saldo Awal RT 2025</span>
                         <span className="text-sm font-bold text-white font-mono">{formatCurrency(saldoRT2025)}</span>
                       </div>
                     </div>
@@ -407,7 +404,7 @@ export default function PublicLanding({ onLogin }: PublicLandingProps) {
                       return (
                         <div key={cat.id} className="space-y-1">
                           <div className="flex justify-between text-xs font-semibold">
-                            <span className="text-[#3A3A2A] truncate max-w-[150px]">{cat.nama}</span>
+                            <span className="text-[#3A3A2A] max-w-[150px]">{cat.nama}</span>
                             <span className="text-[#5A5A40] shrink-0 font-mono text-[11px]">{formatCurrency(cat.amount)}</span>
                           </div>
                           <div className="w-full bg-[#F5F5F0] h-2 rounded-full overflow-hidden">

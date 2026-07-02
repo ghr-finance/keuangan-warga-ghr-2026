@@ -467,7 +467,7 @@ export default function App() {
             <div className="flex items-center gap-3 p-3 bg-[#6B6B4D] rounded-[24px] mb-4">
               <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}`} className="w-9 h-9 rounded-full border-2 border-[#A3A375]" alt="Profile" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate text-white">{user.displayName}</p>
+                <p className="text-sm font-bold text-white">{user.displayName}</p>
                 <p className="text-[10px] text-[#A3A375] font-bold uppercase">Petugas</p>
               </div>
             </div>

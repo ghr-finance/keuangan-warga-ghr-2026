@@ -56,10 +56,10 @@ export default function Laporan() {
     return fromCat || fromDesc;
   };
 
-  const monthTransaksi = transaksi.filter(t => 
-    isWithinInterval(new Date(t.tanggal), { start, end }) &&
-    !isRTTransaction(t) &&
-    !isDKMTransaction(t)
+  const umumTransaksi = transaksi.filter(t => !isRTTransaction(t) && !isDKMTransaction(t));
+
+  const monthTransaksi = umumTransaksi.filter(t => 
+    isWithinInterval(new Date(t.tanggal), { start, end })
   );
 
   const totalMasuk = monthTransaksi.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
@@ -78,12 +78,12 @@ export default function Laporan() {
   const yearStart = new Date(runningYear, 0, 1);
   const cumulativeEnd = endOfMonth(new Date(selectedMonth));
   
-  const cumulativeTrans = transaksi.filter(t => {
+  const cumulativeTrans = umumTransaksi.filter(t => {
     const txDate = new Date(t.tanggal);
-    return txDate >= yearStart && txDate <= cumulativeEnd && !isRTTransaction(t) && !isDKMTransaction(t);
+    return txDate >= yearStart && txDate <= cumulativeEnd;
   });
   
-  const carryforwardTrans = transaksi.filter(t => (t.isHistorical || new Date(t.tanggal) < yearStart) && !isRTTransaction(t) && !isDKMTransaction(t));
+  const carryforwardTrans = umumTransaksi.filter(t => t.isHistorical || new Date(t.tanggal) < yearStart);
   const carryforwardBal = carryforwardTrans.reduce((acc, curr) => {
     if (curr.tipe === 'pemasukan') return acc + curr.jumlah;
     if (curr.tipe === 'pengeluaran') return acc - curr.jumlah;
@@ -94,13 +94,6 @@ export default function Laporan() {
   const cumTotalKeluar = cumulativeTrans.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
   const cumSaldo = cumTotalMasuk - cumTotalKeluar;
   const finalSaldoAkhir = cumSaldo + carryforwardBal;
-  // Combined totals including RT & DKM for reference
-  const cumulativeTransAll = transaksi.filter(t => {
-    const txDate = new Date(t.tanggal);
-    return txDate >= yearStart && txDate <= cumulativeEnd;
-  });
-  const cumTotalMasukAll = cumulativeTransAll.filter(t => t.tipe === 'pemasukan').reduce((acc, curr) => acc + curr.jumlah, 0);
-  const cumTotalKeluarAll = cumulativeTransAll.filter(t => t.tipe === 'pengeluaran').reduce((acc, curr) => acc + curr.jumlah, 0);
 
   // RT & DKM calculations for the selected month
   const monthRTTransactions = transaksi.filter(t => 
@@ -177,9 +170,7 @@ export default function Laporan() {
     // Table 2: Cumulative Summary (Jan 2026 until now + Carryforward)
     const cumulativeSummaryData = [
         ['Total Pemasukan (Sejak Jan 2026)', formatCurrency(cumTotalMasuk)],
-        ['Total Pemasukan (Sejak Jan 2026, inkl. RT & DKM)', formatCurrency(cumTotalMasukAll)],
         ['Total Pengeluaran (Sejak Jan 2026)', formatCurrency(cumTotalKeluar)],
-        ['Total Pengeluaran (Sejak Jan 2026, inkl. RT & DKM)', formatCurrency(cumTotalKeluarAll)],
       ['Saldo Awal (Carryforward 2025)', formatCurrency(carryforwardBal)],
       ['Saldo Kas Akhir', formatCurrency(finalSaldoAkhir)]
     ];
@@ -362,17 +353,17 @@ export default function Laporan() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="summary-item summary-item--laporan bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
-          <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pemasukan</p>
-          <p className="text-base sm:text-lg font-bold font-mono text-[#5A5A40] truncate" title={formatCurrency(totalMasuk)}>{formatCurrency(totalMasuk)}</p>
+          <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pemasukan Umum</p>
+          <p className="text-base sm:text-lg font-bold font-mono text-[#5A5A40]" title={formatCurrency(totalMasuk)}>{formatCurrency(totalMasuk)}</p>
         </div>
         <div className="summary-item summary-item--laporan bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 overflow-hidden">
-          <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pengeluaran</p>
-          <p className="text-base sm:text-lg font-bold font-mono text-[#8B4513] truncate" title={formatCurrency(totalKeluar)}>{formatCurrency(totalKeluar)}</p>
+          <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Total Pengeluaran Umum</p>
+          <p className="text-base sm:text-lg font-bold font-mono text-[#8B4513]" title={formatCurrency(totalKeluar)}>{formatCurrency(totalKeluar)}</p>
         </div>
         <div className="summary-item summary-item--laporan bg-white p-6 sm:p-7 rounded-[32px] border border-[#E5E5DA] shadow-sm transform transition-transform hover:-translate-y-1 sm:col-span-2 lg:col-span-1 overflow-hidden">
           <p className="text-[10px] font-black text-[#A3A375] uppercase tracking-widest mb-2">Surplus Bersih</p>
           <p className={cn(
-            "text-base sm:text-lg font-bold font-mono truncate", 
+            "text-base sm:text-lg font-bold font-mono", 
             surplus < 0 ? "text-red-600 italic" : "text-[#5A5A40]"
           )} title={formatCurrency(surplus)}>
             {formatCurrency(surplus)}
@@ -406,7 +397,7 @@ export default function Laporan() {
                     <Home className="w-3 h-3 text-[#5A5A40]" />
                     <span className="text-[9px] font-black uppercase tracking-wider text-[#5A5A40]">Sinking Fund RT</span>
                   </div>
-                  <h4 className="text-base font-bold text-[#3A3A2A] truncate">Dana Iuran RT</h4>
+                  <h4 className="text-base font-bold text-[#3A3A2A]">Dana Iuran RT</h4>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Akhir Periode</p>
@@ -452,7 +443,7 @@ export default function Laporan() {
                     <Moon className="w-3 h-3 text-[#47554C]" />
                     <span className="text-[9px] font-black uppercase tracking-wider text-[#47554C]">Kas Masjid / Mushola</span>
                   </div>
-                  <h4 className="text-base font-bold text-[#3A3A2A] truncate">Dana Kas DKM</h4>
+                  <h4 className="text-base font-bold text-[#3A3A2A]">Dana Kas DKM</h4>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[9px] font-black text-[#A3A375] uppercase tracking-widest">Saldo Akhir Periode</p>
@@ -559,7 +550,9 @@ export default function Laporan() {
                         "h-full rounded-full transition-all duration-700 ease-out",
                         k.tipe === 'pemasukan' ? "bg-[#5A5A40]" : "bg-[#8B4513]"
                       )}
-                      style={{ width: `${(k.amount / (k.tipe === 'pemasukan' ? totalMasuk : totalKeluar)) * 100}%` }}
+                      style={{
+                        width: `${(k.amount > 0 ? Math.min(100, (k.amount / (k.tipe === 'pemasukan' ? totalMasuk : totalKeluar)) * 100) : 0)}%`
+                      }}
                     />
                   </div>
                 </div>
@@ -584,7 +577,7 @@ export default function Laporan() {
             {monthTransaksi.sort((a,b) => b.tanggal - a.tanggal).map((t) => (
               <div key={t.id} className="p-6 flex items-center justify-between hover:bg-[#F5F5F0]/30 transition-colors group">
                 <div className="min-w-0 flex-1 pr-4">
-                  <p className="text-sm font-bold text-[#3A3A2A] truncate group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</p>
+                  <p className="text-sm font-bold text-[#3A3A2A] group-hover:text-[#5A5A40] transition-colors">{t.keterangan}</p>
                   <p className="text-[10px] text-[#A3A375] font-bold uppercase mt-1">{format(new Date(t.tanggal), 'dd MMM HH:mm')}</p>
                 </div>
                 <div className="text-right">

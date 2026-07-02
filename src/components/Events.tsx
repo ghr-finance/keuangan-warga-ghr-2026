@@ -84,7 +84,7 @@ export default function EventList() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-2xl font-bold text-[#3A3A2A] truncate">{event.nama}</h3>
+                      <h3 className="text-2xl font-bold text-[#3A3A2A]">{event.nama}</h3>
                       <span className={cn(
                         "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest leading-none",
                         event.status === 'Berjalan' ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"
@@ -160,7 +160,7 @@ export default function EventList() {
                     {eventTransactions.sort((a,b) => b.tanggal - a.tanggal).map(t => (
                       <div key={t.id} className="flex items-center justify-between gap-4 bg-white/50 p-3 rounded-xl border border-[#E5E5DA]">
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-[#4A4A3A] truncate">{t.keterangan}</p>
+                          <p className="text-xs font-bold text-[#4A4A3A]">{t.keterangan}</p>
                           <p className="text-[10px] text-[#A3A375] font-bold">
                             {t.wargaId && (
                               <span className="text-[#5A5A40] mr-1.5">
